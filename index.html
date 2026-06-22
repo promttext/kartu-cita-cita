@@ -3,10 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kartu Cita-Cita SD Negeri Serut 01</title>
+<title>SD Negeri Serut 01</title>
 <style>
 body{font-family:Arial,sans-serif;background:#f4f4f4;max-width:900px;margin:auto;padding:20px;text-align:center}
 .panel{background:#fff;padding:20px;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.15)}
+/* Style untuk Logo di Halaman Web */
+.logo-web{max-width:120px;width:100%;height:auto;margin:10px auto 15px auto;display:block}
 input{width:100%;padding:12px;margin:8px 0;box-sizing:border-box}
 button{padding:12px 20px;border:none;border-radius:10px;background:#1565c0;color:#fff;cursor:pointer;font-weight:bold}
 #preview{max-width:420px;width:100%;margin-top:15px;border-radius:12px;cursor:move;background:#eee;min-height:200px;display:inline-block}
@@ -15,7 +17,9 @@ canvas{display:none}
 </head>
 <body>
 <div class="panel">
-<h2>Kartu Cita-Cita SD Negeri Serut 01</h2>
+<img src="logo.png" alt="Logo Sekolah" class="logo-web">
+
+<h2>SD Negeri Serut 01</h2>
 
 <input type="file" id="foto" accept="image/*">
 <input type="text" id="nama" placeholder="Masukkan Nama Siswa">
@@ -127,7 +131,6 @@ document.getElementById("foto").addEventListener("change", e => {
  img.src = URL.createObjectURL(f);
 });
 
-// Hanya mendengarkan input nama dan tombol render (Cita-cita sudah dihapus agar tidak eror)
 document.getElementById("nama").addEventListener("input", render);
 document.getElementById("renderBtn").addEventListener("click", render);
 
