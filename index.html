@@ -93,16 +93,33 @@ ctx.closePath();
 
 ctx.clip();
 
-ctx.drawImage(img,220,460,610,610);
+const size = Math.max(
+610 / img.width,
+610 / img.height
+);
+
+const newWidth = img.width * size;
+const newHeight = img.height * size;
+
+const x = 220 + (610 - newWidth) / 2;
+const y = 460 + (610 - newHeight) / 2;
+
+ctx.drawImage(
+img,
+x,
+y,
+newWidth,
+newHeight
+);
 
 ctx.restore();
 
-ctx.font="bold 36px Arial";
+ctx.font="bold 54px Arial";
 ctx.fillStyle="#001B5E";
 
-ctx.fillText(nama,420,1295);
+ctx.fillText(nama.toUpperCase(),420,1295);
 
-ctx.fillText(cita,420,1415);
+ctx.fillText(cita.toUpperCase(),420,1415);
 
 const dataURL=canvas.toDataURL("image/png");
 
