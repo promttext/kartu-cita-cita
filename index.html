@@ -87,22 +87,22 @@ ctx.save();
 
 ctx.beginPath();
 
-ctx.arc(524,760,260,0,Math.PI*2);
+ctx.arc(524,760,270,0,Math.PI*2);
 
 ctx.closePath();
 
 ctx.clip();
 
-ctx.drawImage(img,264,500,520,520);
+ctx.drawImage(img,220,460,610,610);
 
 ctx.restore();
 
 ctx.font="bold 36px Arial";
 ctx.fillStyle="#001B5E";
 
-ctx.fillText(nama,380,1295);
+ctx.fillText(nama,420,1295);
 
-ctx.fillText(cita,380,1415);
+ctx.fillText(cita,420,1415);
 
 const dataURL=canvas.toDataURL("image/png");
 
