@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +11,7 @@
 body{
 font-family:Arial,sans-serif;
 background:#f4f8ff;
-max-width:600px;
+max-width:700px;
 margin:auto;
 padding:20px;
 text-align:center;
@@ -20,41 +19,43 @@ text-align:center;
 
 h1{
 color:#001B5E;
-margin-bottom:5px;
+margin-bottom:10px;
 }
 
-.subtitle{
-margin-bottom:20px;
-color:#555;
+.card{
+background:white;
+padding:20px;
+border-radius:20px;
+box-shadow:0 5px 20px rgba(0,0,0,0.1);
 }
 
 input[type="text"]{
 width:100%;
 padding:12px;
-font-size:18px;
 margin:10px 0;
+font-size:18px;
 border-radius:10px;
 border:2px solid #ddd;
 box-sizing:border-box;
-}
-
-input[type="file"]{
-margin:15px 0;
 }
 
 input[type="range"]{
 width:100%;
 }
 
+input[type="file"]{
+margin:10px 0;
+}
+
 label{
 display:block;
 text-align:left;
-margin-top:10px;
 font-weight:bold;
+margin-top:12px;
 }
 
 button{
-background:#1e88e5;
+background:#1E88E5;
 color:white;
 border:none;
 padding:12px 25px;
@@ -65,14 +66,15 @@ margin-top:15px;
 }
 
 button:hover{
-opacity:0.9;
+opacity:.9;
 }
 
 #preview{
-max-width:100%;
+width:100%;
+max-width:450px;
 margin-top:20px;
 border-radius:15px;
-box-shadow:0 0 15px rgba(0,0,0,0.2);
+box-shadow:0 5px 20px rgba(0,0,0,.2);
 display:none;
 }
 
@@ -85,14 +87,18 @@ display:none;
 
 <body>
 
+<div class="card">
+
 <h1>🌈 Kartu Cita-Citaku</h1>
 
-<div class="subtitle">
-PPDB SD Serut 01<br>
-Belajar • Bermain • Berprestasi
-</div>
+<p>
+PPDB SD Serut 01
+</p>
 
-<input type="file" id="foto" accept="image/*">
+<input
+type="file"
+id="foto"
+accept="image/*">
 
 <input
 type="text"
@@ -109,24 +115,24 @@ placeholder="Cita-cita">
 type="range"
 id="zoom"
 min="1"
-max="3"
+max="4"
 step="0.1"
-value="1">
+value="1.5">
 
 <label>↔ Geser Kiri / Kanan</label>
 <input
 type="range"
 id="offsetX"
-min="-300"
-max="300"
+min="-400"
+max="400"
 value="0">
 
 <label>↕ Geser Atas / Bawah</label>
 <input
 type="range"
 id="offsetY"
-min="-300"
-max="300"
+min="-400"
+max="400"
 value="0">
 
 <button onclick="buatKartu()">
@@ -141,7 +147,11 @@ Download Kartu
 </button>
 </a>
 
+<br>
+
 <img id="preview">
+
+</div>
 
 <canvas
 id="canvas"
@@ -151,79 +161,64 @@ height="1536">
 
 <script>
 
-function tulisOtomatis(ctx,text,x,y,maxWidth){
+function autoFont(ctx,text,maxWidth,startSize){
 
-let ukuran = 54;
+let size=startSize;
 
-do{
+while(size>20){
 
-ctx.font =
-`bold ${ukuran}px Arial`;
+ctx.font=`bold ${size}px Arial`;
 
-ukuran--;
+if(ctx.measureText(text).width<=maxWidth){
+return size;
+}
 
-}while(
-ctx.measureText(text).width >
-maxWidth &&
-ukuran > 20
-);
+size--;
+}
 
-ctx.fillText(text,x,y);
-
+return 20;
 }
 
 function buatKartu(){
 
-const foto =
+const file=
 document.getElementById('foto').files[0];
 
-const nama =
+if(!file)return;
+
+const nama=
 document.getElementById('nama').value.trim();
 
-const cita =
+const cita=
 document.getElementById('cita').value.trim();
 
-if(!foto){
-alert("Upload foto terlebih dahulu");
-return;
-}
-
-if(!nama){
-alert("Isi nama anak");
-return;
-}
-
-if(!cita){
-alert("Isi cita-cita");
-return;
-}
-
-const zoom =
+const zoom=
 parseFloat(
 document.getElementById('zoom').value
 );
 
-const offsetX =
+const offsetX=
 parseInt(
 document.getElementById('offsetX').value
 );
 
-const offsetY =
+const offsetY=
 parseInt(
 document.getElementById('offsetY').value
 );
 
-const canvas =
+const canvas=
 document.getElementById('canvas');
 
-const ctx =
+const ctx=
 canvas.getContext('2d');
 
-const bg = new Image();
+const template=
+new Image();
 
-bg.src = "template.png";
+template.src="template.png";
 
-bg.onload = function(){
+template.onload=function(){
 
 ctx.clearRect(
 0,
@@ -233,20 +228,20 @@ canvas.height
 );
 
 ctx.drawImage(
-bg,
+template,
 0,
 0,
 canvas.width,
 canvas.height
 );
 
-const img =
+const foto=
 new Image();
 
-img.src =
-URL.createObjectURL(foto);
+foto.src=
+URL.createObjectURL(file);
 
-img.onload = function(){
+foto.onload=function(){
 
 ctx.save();
 
@@ -255,7 +250,7 @@ ctx.beginPath();
 ctx.arc(
 524,
 760,
-270,
+350,
 0,
 Math.PI*2
 );
@@ -264,30 +259,32 @@ ctx.closePath();
 
 ctx.clip();
 
-const baseSize = 610;
+const baseSize=760;
 
-const drawWidth =
-img.width *
-(baseSize/img.width) *
-zoom;
+const scale=
+Math.max(
+baseSize/foto.width,
+baseSize/foto.height
+)*zoom;
 
-const drawHeight =
-img.height *
-(baseSize/img.width) *
-zoom;
+const drawWidth=
+foto.width*scale;
 
-const x =
-220 +
-offsetX -
+const drawHeight=
+foto.height*scale;
+
+const x=
+204+
+offsetX-
 (drawWidth-baseSize)/2;
 
-const y =
-460 +
-offsetY -
+const y=
+380+
+offsetY-
 (drawHeight-baseSize)/2;
 
 ctx.drawImage(
-img,
+foto,
 x,
 y,
 drawWidth,
@@ -296,58 +293,68 @@ drawHeight
 
 ctx.restore();
 
-ctx.fillStyle =
-"#001B5E";
+ctx.fillStyle="#001B5E";
 
-ctx.textAlign =
-"left";
+ctx.textAlign="left";
 
-tulisOtomatis(
+let ukuranNama=
+autoFont(
 ctx,
 nama.toUpperCase(),
-420,
-1295,
-500
+470,
+56
 );
 
-tulisOtomatis(
+ctx.font=
+`bold ${ukuranNama}px Arial`;
+
+ctx.fillText(
+nama.toUpperCase(),
+410,
+1295
+);
+
+let ukuranCita=
+autoFont(
 ctx,
 cita.toUpperCase(),
-420,
-1415,
-500
+470,
+56
 );
 
-const dataURL =
+ctx.font=
+`bold ${ukuranCita}px Arial`;
+
+ctx.fillText(
+cita.toUpperCase(),
+410,
+1415
+);
+
+const hasil=
 canvas.toDataURL(
 "image/png"
 );
 
-document
-.getElementById(
+document.getElementById(
 'preview'
-)
-.src = dataURL;
+).src=hasil;
 
-document
-.getElementById(
+document.getElementById(
 'preview'
-)
-.style.display =
-'block';
+).style.display='block';
 
-const link =
+const download=
 document.getElementById(
 'download'
 );
 
-link.href =
-dataURL;
+download.href=hasil;
 
-link.download =
-'Kartu-'+nama+'.png';
+download.download=
+'Kartu-Cita-Cita.png';
 
-link.style.display =
+download.style.display=
 'inline';
 
 };
@@ -356,23 +363,44 @@ link.style.display =
 
 }
 
-document
-.getElementById('zoom')
-.addEventListener(
+document.getElementById(
+'zoom'
+).addEventListener(
 'input',
 buatKartu
 );
 
-document
-.getElementById('offsetX')
-.addEventListener(
+document.getElementById(
+'offsetX'
+).addEventListener(
 'input',
 buatKartu
 );
 
-document
-.getElementById('offsetY')
-.addEventListener(
+document.getElementById(
+'offsetY'
+).addEventListener(
+'input',
+buatKartu
+);
+
+document.getElementById(
+'foto'
+).addEventListener(
+'change',
+buatKartu
+);
+
+document.getElementById(
+'nama'
+).addEventListener(
+'input',
+buatKartu
+);
+
+document.getElementById(
+'cita'
+).addEventListener(
 'input',
 buatKartu
 );
