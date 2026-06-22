@@ -35,9 +35,7 @@ canvas{display:none}
 const TEMPLATE="template.png";
 
 let userImage=null;
-let posX=0;
-let posY=0;
-let scale=1.0;
+let posX=0,posY=0,scale=1.2;
 let dragging=false,startX=0,startY=0;
 
 const preview=document.getElementById("preview");
@@ -65,21 +63,29 @@ function render(){
 
   ctx.clearRect(0,0,canvas.width,canvas.height);
 
-const ratio = Math.max(
- PHOTO_W / userImage.width,
- PHOTO_H / userImage.height
-);
+  const cx=764;
+  const cy=1035;
+  const radius=465;
 
-const w = userImage.width * ratio * scale;
-const h = userImage.height * ratio * scale;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx,cy,radius,0,Math.PI*2);
+  ctx.clip();
 
-ctx.drawImage(
- userImage,
- PHOTO_X + (PHOTO_W - w)/2 + posX,
- PHOTO_Y + (PHOTO_H - h)/2 + posY,
- w,
- h
-);
+  const diameter=radius*2;
+  const base=Math.max(diameter/userImage.width,diameter/userImage.height)*scale;
+
+  const w=userImage.width*base;
+  const h=userImage.height*base;
+
+  ctx.drawImage(
+   userImage,
+   cx-w/2+posX,
+   cy-h/2+posY,
+   w,h
+  );
+
+  ctx.restore();
 
   ctx.drawImage(template,0,0,canvas.width,canvas.height);
 
@@ -113,9 +119,7 @@ document.getElementById("foto").addEventListener("change",e=>{
  const img=new Image();
  img.onload=()=>{
   userImage=img;
-  posX=0;
-posY=0;
-scale=1.0;
+  posX=0; posY=0; scale=1.2;
   render();
  };
  img.src=URL.createObjectURL(f);
