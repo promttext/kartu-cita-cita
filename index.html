@@ -1,141 +1,382 @@
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kartu Cita-Cita SD Serut 01</title>
+
+<title>Kartu Cita-Citaku SD Serut 01</title>
 
 <style>
+
 body{
 font-family:Arial,sans-serif;
-max-width:500px;
+background:#f4f8ff;
+max-width:600px;
 margin:auto;
 padding:20px;
 text-align:center;
 }
 
-input{
+h1{
+color:#001B5E;
+margin-bottom:5px;
+}
+
+.subtitle{
+margin-bottom:20px;
+color:#555;
+}
+
+input[type="text"]{
 width:100%;
-padding:10px;
+padding:12px;
+font-size:18px;
 margin:10px 0;
-font-size:16px;
+border-radius:10px;
+border:2px solid #ddd;
+box-sizing:border-box;
+}
+
+input[type="file"]{
+margin:15px 0;
+}
+
+input[type="range"]{
+width:100%;
+}
+
+label{
+display:block;
+text-align:left;
+margin-top:10px;
+font-weight:bold;
 }
 
 button{
-padding:12px 20px;
+background:#1e88e5;
+color:white;
+border:none;
+padding:12px 25px;
 font-size:18px;
+border-radius:10px;
 cursor:pointer;
+margin-top:15px;
+}
+
+button:hover{
+opacity:0.9;
+}
+
+#preview{
+max-width:100%;
+margin-top:20px;
+border-radius:15px;
+box-shadow:0 0 15px rgba(0,0,0,0.2);
+display:none;
 }
 
 canvas{
 display:none;
 }
+
 </style>
 </head>
 
 <body>
 
-<h2>Kartu Cita-Citaku</h2>
+<h1>🌈 Kartu Cita-Citaku</h1>
+
+<div class="subtitle">
+PPDB SD Serut 01<br>
+Belajar • Bermain • Berprestasi
+</div>
 
 <input type="file" id="foto" accept="image/*">
 
-<input type="text" id="nama" placeholder="Nama Anak">
+<input
+type="text"
+id="nama"
+placeholder="Nama Anak">
 
-<input type="text" id="cita" placeholder="Cita-cita">
+<input
+type="text"
+id="cita"
+placeholder="Cita-cita">
 
-<button onclick="buatKartu()">Buat Kartu</button>
+<label>🔍 Zoom Foto</label>
+<input
+type="range"
+id="zoom"
+min="1"
+max="3"
+step="0.1"
+value="1">
 
-<br><br>
+<label>↔ Geser Kiri / Kanan</label>
+<input
+type="range"
+id="offsetX"
+min="-300"
+max="300"
+value="0">
 
-<a id="download" style="display:none">
-<button>Download Kartu</button>
+<label>↕ Geser Atas / Bawah</label>
+<input
+type="range"
+id="offsetY"
+min="-300"
+max="300"
+value="0">
+
+<button onclick="buatKartu()">
+Preview Kartu
+</button>
+
+<br>
+
+<a id="download" style="display:none;">
+<button>
+Download Kartu
+</button>
 </a>
 
-<canvas id="canvas" width="1047" height="1536"></canvas>
+<img id="preview">
+
+<canvas
+id="canvas"
+width="1047"
+height="1536">
+</canvas>
 
 <script>
 
+function tulisOtomatis(ctx,text,x,y,maxWidth){
+
+let ukuran = 54;
+
+do{
+
+ctx.font =
+`bold ${ukuran}px Arial`;
+
+ukuran--;
+
+}while(
+ctx.measureText(text).width >
+maxWidth &&
+ukuran > 20
+);
+
+ctx.fillText(text,x,y);
+
+}
+
 function buatKartu(){
 
-const foto=document.getElementById('foto').files[0];
-const nama=document.getElementById('nama').value;
-const cita=document.getElementById('cita').value;
+const foto =
+document.getElementById('foto').files[0];
+
+const nama =
+document.getElementById('nama').value.trim();
+
+const cita =
+document.getElementById('cita').value.trim();
 
 if(!foto){
-alert('Silakan upload foto');
+alert("Upload foto terlebih dahulu");
 return;
 }
 
-const canvas=document.getElementById('canvas');
-const ctx=canvas.getContext('2d');
+if(!nama){
+alert("Isi nama anak");
+return;
+}
 
-const bg=new Image();
+if(!cita){
+alert("Isi cita-cita");
+return;
+}
 
-bg.src='template.png';
+const zoom =
+parseFloat(
+document.getElementById('zoom').value
+);
 
-bg.onload=function(){
+const offsetX =
+parseInt(
+document.getElementById('offsetX').value
+);
 
-ctx.drawImage(bg,0,0,canvas.width,canvas.height);
+const offsetY =
+parseInt(
+document.getElementById('offsetY').value
+);
 
-const img=new Image();
+const canvas =
+document.getElementById('canvas');
 
-img.src=URL.createObjectURL(foto);
+const ctx =
+canvas.getContext('2d');
 
-img.onload=function(){
+const bg = new Image();
+
+bg.src = "template.png";
+
+bg.onload = function(){
+
+ctx.clearRect(
+0,
+0,
+canvas.width,
+canvas.height
+);
+
+ctx.drawImage(
+bg,
+0,
+0,
+canvas.width,
+canvas.height
+);
+
+const img =
+new Image();
+
+img.src =
+URL.createObjectURL(foto);
+
+img.onload = function(){
 
 ctx.save();
 
 ctx.beginPath();
 
-ctx.arc(524,760,270,0,Math.PI*2);
+ctx.arc(
+524,
+760,
+270,
+0,
+Math.PI*2
+);
 
 ctx.closePath();
 
 ctx.clip();
 
-const size = Math.max(
-610 / img.width,
-610 / img.height
-);
+const baseSize = 610;
 
-const newWidth = img.width * size;
-const newHeight = img.height * size;
+const drawWidth =
+img.width *
+(baseSize/img.width) *
+zoom;
 
-const x = 220 + (610 - newWidth) / 2;
-const y = 460 + (610 - newHeight) / 2;
+const drawHeight =
+img.height *
+(baseSize/img.width) *
+zoom;
+
+const x =
+220 +
+offsetX -
+(drawWidth-baseSize)/2;
+
+const y =
+460 +
+offsetY -
+(drawHeight-baseSize)/2;
 
 ctx.drawImage(
 img,
 x,
 y,
-newWidth,
-newHeight
+drawWidth,
+drawHeight
 );
 
 ctx.restore();
 
-ctx.font="bold 54px Arial";
-ctx.fillStyle="#001B5E";
+ctx.fillStyle =
+"#001B5E";
 
-ctx.fillText(nama.toUpperCase(),420,1295);
+ctx.textAlign =
+"left";
 
-ctx.fillText(cita.toUpperCase(),420,1415);
+tulisOtomatis(
+ctx,
+nama.toUpperCase(),
+420,
+1295,
+500
+);
 
-const dataURL=canvas.toDataURL("image/png");
+tulisOtomatis(
+ctx,
+cita.toUpperCase(),
+420,
+1415,
+500
+);
 
-const link=document.getElementById('download');
+const dataURL =
+canvas.toDataURL(
+"image/png"
+);
 
-link.href=dataURL;
+document
+.getElementById(
+'preview'
+)
+.src = dataURL;
 
-link.download='Kartu-'+nama+'.png';
+document
+.getElementById(
+'preview'
+)
+.style.display =
+'block';
 
-link.style.display='inline';
+const link =
+document.getElementById(
+'download'
+);
+
+link.href =
+dataURL;
+
+link.download =
+'Kartu-'+nama+'.png';
+
+link.style.display =
+'inline';
+
+};
+
+};
 
 }
 
-}
+document
+.getElementById('zoom')
+.addEventListener(
+'input',
+buatKartu
+);
 
-}
+document
+.getElementById('offsetX')
+.addEventListener(
+'input',
+buatKartu
+);
+
+document
+.getElementById('offsetY')
+.addEventListener(
+'input',
+buatKartu
+);
+
 </script>
 
 </body>
