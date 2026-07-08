@@ -62,25 +62,25 @@ function render() {
         // 2. Gambar Template
         ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
         // Mengatur geser (Drag/Pan)
-preview.addEventListener('mousedown', (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
-window.addEventListener('mouseup', () => { isDragging = false; });
-preview.addEventListener('mousemove', (e) => {
+        preview.addEventListener('mousedown', (e) => { isDragging = true; lastX = e.clientX; lastY = e.clientY; });
+        window.addEventListener('mouseup', () => { isDragging = false; });
+        preview.addEventListener('mousemove', (e) => {
     if (isDragging) {
         posX += (e.clientX - lastX);
         posY += (e.clientY - lastY);
         lastX = e.clientX; lastY = e.clientY;
         render(); // Update tampilan
-    }
-});
+        }
+    });
 
-// Mengatur Zoom dengan scroll mouse
-preview.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    scale += e.deltaY * -0.001;
-    scale = Math.min(Math.max(.5, scale), 3); // Batas zoom 0.5x sampai 3x
-    render();
-});
-
+        // Mengatur Zoom dengan scroll mouse
+        preview.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        scale += e.deltaY * -0.001;
+        scale = Math.min(Math.max(.5, scale), 3); // Batas zoom 0.5x sampai 3x
+        render();
+    });
+        
         // Cetak Nama
             const nama = document.getElementById("nama").value.toUpperCase();
             ctx.fillStyle = "#FFFFFF";
