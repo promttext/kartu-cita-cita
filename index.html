@@ -62,12 +62,16 @@ function render() {
         // 2. Gambar Template
         ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
 
-        // 3. Cetak Nama
-        const nama = document.getElementById("nama").value.toUpperCase();
-        ctx.fillStyle = "#111";
-        ctx.textAlign = "center";
-        ctx.font = "bold 80px Arial";
-        ctx.fillText(nama, 764, 1915);
+        // 3. Cetak Teks Nama (Putih dengan Stroke Hitam)
+const nama = document.getElementById("nama").value.toUpperCase();
+ctx.fillStyle = "#FFFFFF"; // Warna teks putih
+ctx.strokeStyle = "#000000"; // Warna garis tepi hitam
+ctx.lineWidth = 8; // Ketebalan garis tepi (bisa disesuaikan)
+ctx.textAlign = "left"; // Teks rata kiri
+
+// Posisi Nama (X: 100, Y: 1950) - silakan sesuaikan X jika ingin lebih ke kiri/kanan
+ctx.strokeText(nama, 100, 1950);
+ctx.fillText(nama, 100, 1950);
 
         // 4. Generate & Gambar QR Code
         const qrContainer = document.getElementById("qrSource");
