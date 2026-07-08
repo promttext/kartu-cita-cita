@@ -51,24 +51,22 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 function render() {
+    function render() {
     if (!userImage) { alert("Pilih foto dulu!"); return; }
 
     const templateImage = new Image();
     templateImage.crossOrigin = "anonymous";
     templateImage.onload = () => {
+        // Gambar Template & Foto (Sama seperti sebelumnya)
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 1. Gambar Foto
         const cx = 775, cy = 1055;
         const minTargetSize = 900;
         const base = Math.max(minTargetSize / userImage.width, minTargetSize / userImage.height) * scale;
         const w = userImage.width * base, h = userImage.height * base;
         ctx.drawImage(userImage, cx - w/2 + posX, cy - h/2 + posY, w, h);
-
-        // 2. Gambar Template
         ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
 
-        // 3. Cetak Nama
+        // Cetak Nama
         const nama = document.getElementById("nama").value.toUpperCase();
         ctx.fillStyle = "#FFFFFF";
         ctx.strokeStyle = "#000000";
@@ -77,6 +75,32 @@ function render() {
         ctx.font = "bold 60px Arial";
         ctx.strokeText(nama, 100, 1950);
         ctx.fillText(nama, 100, 1950);
+
+        // PERBAIKAN: Gunakan QRCode dengan cara yang lebih sederhana
+        const qrContainer = document.getElementById("qrSource");
+        qrContainer.innerHTML = "";
+        new QRCode(qrContainer, { text: nama || "SISWA", width: 300, height: 300 });
+        
+        // Tunggu sebentar saja, lalu ambil gambar QR
+        setTimeout(() => {
+            const qrImg = qrContainer.querySelector("img");
+            if (qrImg) {
+                // Langsung gambar ke canvas
+                ctx.drawImage(qrImg, 1063, 1560, 390, 390);
+                
+                // Gunakan toDataURL hanya sekali di akhir
+                const data = canvas.toDataURL("image/png", 0.7); // 0.7 memperkecil ukuran file agar HP tidak crash
+                preview.src = data;
+                const dl = document.getElementById("download");
+                dl.href = data;
+                dl.style.display = "inline-block";
+            } else {
+                alert("Barcode gagal dimuat, coba klik sekali lagi.");
+            }
+        }, 300);
+    };
+    templateImage.src = TEMPLATE_SRC;
+}
 
         // 4. Generate QR (Ditingkatkan kestabilannya)
         const qrContainer = document.getElementById("qrSource");
