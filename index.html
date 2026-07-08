@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SD Negeri Serut 01</title>
+<!-- Library untuk generate QR Code -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 body{font-family:Arial,sans-serif;background:#f4f4f4;max-width:900px;margin:auto;padding:20px;text-align:center}
@@ -11,18 +12,8 @@ body{font-family:Arial,sans-serif;background:#f4f4f4;max-width:900px;margin:auto
 .logo-web{max-width:120px;width:100%;height:auto;margin:10px auto 15px auto;display:block}
 input{width:100%;padding:12px;margin:8px 0;box-sizing:border-box}
 button{padding:12px 20px;border:none;border-radius:10px;background:#1565c0;color:#fff;cursor:pointer;font-weight:bold}
-#preview{max-width:420px;width:100%;margin-top:15px;border-radius:12px;background:#eee;display:inline-block}
+#preview{max-width:420px;width:100%;margin-top:15px;border-radius:12px;cursor:move;background:#eee;display:inline-block}
 canvas{display:none}
-
-/* PERBAIKAN: Agar tetap dimuat oleh browser HP */
-#qrSource {
-    visibility: hidden;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 1px;
-    height: 1px;
-}
 </style>
 </head>
 <body>
@@ -31,107 +22,90 @@ canvas{display:none}
     <h2>SD Negeri Serut 01</h2>
     <input type="file" id="foto" accept="image/*">
     <input type="text" id="nama" placeholder="Masukkan Nama Siswa">
-    <p><b>Klik Preview & Update QR setelah pilih foto.</b></p>
+    <p><b>Geser/Zoom foto, lalu klik Preview.</b></p>
     <button id="renderBtn">Preview & Update QR</button>
     <a id="download" style="display:none"><button type="button">Download PNG</button></a>
     <br><br>
     <img id="preview" alt="Preview akan muncul di sini">
 </div>
 
-<div id="qrSource"></div>
+<!-- Container tersembunyi untuk QR Code -->
+<div id="qrSource" style="display:none"></div>
+
 <canvas id="canvas" width="1529" height="2048"></canvas>
 
 <script>
 const TEMPLATE_SRC = "template.png";
 let userImage = null;
 let posX = 0, posY = 0, scale = 1.0;
+let dragging = false, startX = 0, startY = 0;
 
 const preview = document.getElementById("preview");
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
 function render() {
-    function render() {
-    if (!userImage) { alert("Pilih foto dulu!"); return; }
+    if (!userImage) return;
 
     const templateImage = new Image();
     templateImage.crossOrigin = "anonymous";
     templateImage.onload = () => {
-        // Gambar Template & Foto (Sama seperti sebelumnya)
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 1. Gambar Foto
         const cx = 775, cy = 1055;
         const minTargetSize = 900;
         const base = Math.max(minTargetSize / userImage.width, minTargetSize / userImage.height) * scale;
         const w = userImage.width * base, h = userImage.height * base;
         ctx.drawImage(userImage, cx - w/2 + posX, cy - h/2 + posY, w, h);
+
+        // 2. Gambar Template
         ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
 
         // Cetak Nama
-        const nama = document.getElementById("nama").value.toUpperCase();
-        ctx.fillStyle = "#FFFFFF";
-        ctx.strokeStyle = "#000000";
-        ctx.lineWidth = 8;
-        ctx.textAlign = "left";
-        ctx.font = "bold 60px Arial";
-        ctx.strokeText(nama, 100, 1950);
-        ctx.fillText(nama, 100, 1950);
+            const nama = document.getElementById("nama").value.toUpperCase();
+            ctx.fillStyle = "#FFFFFF";
+            ctx.strokeStyle = "#000000";
+            ctx.lineWidth = 8;
+            ctx.textAlign = "left";
+            ctx.font = "bold 60px Arial";
+            ctx.strokeText(nama, 100, 1950);
+            ctx.fillText(nama, 100, 1950);
 
-        // PERBAIKAN: Gunakan QRCode dengan cara yang lebih sederhana
+        // 4. Generate & Gambar QR Code
         const qrContainer = document.getElementById("qrSource");
         qrContainer.innerHTML = "";
-        new QRCode(qrContainer, { text: nama || "SISWA", width: 300, height: 300 });
-        
-        // Tunggu sebentar saja, lalu ambil gambar QR
-        setTimeout(() => {
-            const qrImg = qrContainer.querySelector("img");
-            if (qrImg) {
-                // Langsung gambar ke canvas
-                ctx.drawImage(qrImg, 1063, 1560, 390, 390);
-                
-                // Gunakan toDataURL hanya sekali di akhir
-                const data = canvas.toDataURL("image/png", 0.7); // 0.7 memperkecil ukuran file agar HP tidak crash
-                preview.src = data;
-                const dl = document.getElementById("download");
-                dl.href = data;
-                dl.style.display = "inline-block";
-            } else {
-                alert("Barcode gagal dimuat, coba klik sekali lagi.");
-            }
-        }, 300);
-    };
-    templateImage.src = TEMPLATE_SRC;
-}
-
-        // 4. Generate QR (Ditingkatkan kestabilannya)
-        const qrContainer = document.getElementById("qrSource");
-        qrContainer.innerHTML = "";
-        new QRCode(qrContainer, { text: nama || "SISWA", width: 390, height: 390 });
+        new QRCode(qrContainer, { text: nama || "NAMA_SISWA", width: 256, height: 256 });
         
         setTimeout(() => {
             const qrImg = qrContainer.querySelector("img");
             if (qrImg) {
-                // Koordinat QR yang sudah kita sesuaikan
-                ctx.drawImage(qrImg, 1110, 1690, 320, 320); 
+                // Posisi QR Code di kanvas (atur koordinat x, y, lebar, tinggi di sini)
+                ctx.drawImage(qrImg, 1063, 1560, 390, 390); 
             }
+            
+            // Update Preview
             const data = canvas.toDataURL("image/png");
             preview.src = data;
             const dl = document.getElementById("download");
             dl.href = data;
             dl.download = "Kartu_Siswa.png";
             dl.style.display = "inline-block";
-        }, 500); // Waktu tunggu 500ms lebih aman untuk HP
+        }, 100);
     };
-    templateImage.src = TEMPLATE_SRC + "?v=" + new Date().getTime(); // Cache busting
+    templateImage.src = TEMPLATE_SRC;
 }
 
+// Event Listeners sama seperti sebelumnya...
 document.getElementById("foto").addEventListener("change", e => {
     const f = e.target.files[0];
     const img = new Image();
-    img.onload = () => { userImage = img; };
+    img.onload = () => { userImage = img; render(); };
     img.src = URL.createObjectURL(f);
 });
 
 document.getElementById("renderBtn").addEventListener("click", render);
+// (Logika touch/mouse Anda tetap bisa dipakai di sini)
 </script>
 </body>
 </html>
