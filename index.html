@@ -41,54 +41,71 @@ const ctx = canvas.getContext("2d");
 
 function render() {
     if (!userImage) return;
+
     const templateImage = new Image();
     templateImage.crossOrigin = "anonymous";
+
     templateImage.onload = () => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
+
         // 1. Gambar Foto (Menggunakan posisi X, Y dan Scale yang aktif)
         const cx = 775, cy = 1055, minTargetSize = 900;
         const base = Math.max(minTargetSize / userImage.width, minTargetSize / userImage.height) * scale;
         ctx.drawImage(userImage, cx - (userImage.width * base)/2 + posX, cy - (userImage.height * base)/2 + posY, userImage.width * base, userImage.height * base);
-        
+
         // 2. Gambar Template
         ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
 
-        // 3. Nama
-        // Nama siswa (Ganti dengan kode ini)
-const nama = (document.getElementById("nama").value || "").toUpperCase();
+        // 3. Nama Siswa (Rata Kiri, Putih, Stroke Hitam)
+        const nama = (document.getElementById("nama").value || "").toUpperCase();
+        ctx.fillStyle = "#FFFFFF";       // Warna teks putih
+        ctx.strokeStyle = "#000000";     // Warna garis pinggir hitam
+        ctx.lineWidth = 10;              // Ketebalan stroke
+        ctx.textAlign = "left";          // Rata Kiri
 
-// Setting gaya teks
-ctx.fillStyle = "#FFFFFF";      // Warna putih
-ctx.strokeStyle = "#000000";    // Warna stroke (garis pinggir) hitam
-ctx.lineWidth = 8;              // Ketebalan garis pinggir
-ctx.textAlign = "left";         // Rata kiri
+        // Hitung ukuran font otomatis agar tidak kepanjangan
+        const fontSize = autoFont(ctx, nama, 1000, 75); 
+        ctx.font = `bold ${fontSize}px Arial`;
 
-// Menghitung ukuran font otomatis
-const fontSize = autoFont(ctx, nama, 1000, 70); 
-ctx.font = `bold ${fontSize}px Arial`;
+        // Gambar tulisan di koordinat X=120 (Kiri) dan Y=1930 (Bawah dekat QR)
+        ctx.strokeText(nama, 120, 1930); 
+        ctx.fillText(nama, 120, 1930); 
 
-// Cetak garis pinggir dulu, baru teks putih di atasnya
-ctx.strokeText(nama, 100, 1950); 
-ctx.fillText(nama, 100, 1950);
-
-        // 4. QR Code
+        // 4. Jalankan QR Code
         const qrContainer = document.getElementById("qrSource");
         qrContainer.innerHTML = "";
         new QRCode(qrContainer, { text: nama || "SISWA", width: 300, height: 300 });
-        
+
+        // Beri jeda agar QR selesai digenerate oleh browser sebelum ditempel ke canvas
         setTimeout(() => {
             const qrImg = qrContainer.querySelector("img");
-            if (qrImg) ctx.drawImage(qrImg, 1110, 1690, 320, 320);
-            preview.src = canvas.toDataURL("image/png");
-            const dl = document.getElementById("download");
-            dl.href = canvas.toDataURL("image/png");
-            dl.style.display = "inline-block";
+            if (qrImg) {
+                ctx.drawImage(qrImg, 1110, 1690, 320, 320);
+            }
+            
+            // Ekspor final ke tag preview <img>
+            try {
+                const data = canvas.toDataURL("image/png");
+                preview.src = data;
+
+                const dl = document.getElementById("download");
+                if (dl) {
+                    dl.href = data;
+                    dl.download = "Kartu-Cita-Cita.png";
+                    dl.style.display = "inline-block";
+                }
+            } catch (err) {
+                console.error("Gagal ekspor gambar:", err);
+            }
         }, 300);
     };
+
+    templateImage.onerror = () => {
+        alert("Gagal memuat file template.png!");
+    };
+
     templateImage.src = TEMPLATE_SRC;
 }
-
 // FUNGSI DRAG & ZOOM (Dipisahkan agar tidak konflik)
 preview.addEventListener("mousedown", e => { dragging = true; startX = e.clientX - posX; startY = e.clientY - posY; });
 window.addEventListener("mouseup", () => dragging = false);
