@@ -1,1 +1,124 @@
 
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Absen Otomatis - SDN Serut 01</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f3; margin: 0; padding: 20px; text-align: center; color: #333; }
+        .container { max-width: 1000px; margin: auto; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+        .box { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); flex: 1; min-width: 320px; }
+        #reader { width: 100%; max-width: 400px; margin: auto; border-radius: 12px; overflow: hidden; background: #222; }
+        .log-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .log-table th, .log-table td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
+        .log-table th { background: #1565c0; color: white; }
+        #notif { font-size: 24px; font-weight: bold; margin: 15px 0; min-height: 35px; color: #2e7d32; }
+        .status-success { animation: pop 0.5s ease-in-out; }
+        @keyframes pop { 0% { transform: scale(0.8); } 100% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+
+    <h1>🚨 PANEL ABSENSI OTOMATIS SDN SERUT 01 🚨</h1>
+    <p>Halaman khusus Laptop Guru Piket. Arahkan QR Twibbon Siswa ke Kamera.</p>
+
+    <div class="container">
+        <div class="box">
+            <h3>📷 SCANNER KAMERA</h3>
+            <div id="reader"></div>
+            <div id="notif">Menunggu QR Code Siswa...</div>
+        </div>
+
+        <div class="box">
+            <h3>📅 DAFTAR HADIR HARI INI (<span id="count">0</span> Siswa)</h3>
+            <button onclick="clearAbsen()" style="padding: 8px 12px; background: #d32f2f; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 10px;">Reset Data Absen</button>
+            <div style="max-height: 350px; overflow-y: auto;">
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th>Waktu</th>
+                            <th>Nama Siswa</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logMulai"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+<script>
+// Efek Suara Bip saat Berhasil Absen
+const audioBip = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav');
+
+// Mengambil data dari memori browser agar tidak hilang saat di-refresh
+let dataAbsen = JSON.parse(localStorage.getItem('absen_sdn_serut')) || [];
+
+function updateTable() {
+    const tbody = document.getElementById("logMulai");
+    const countSpan = document.getElementById("count");
+    tbody.innerHTML = "";
+    
+    // Urutkan dari yang paling baru datang
+    dataAbsen.slice().reverse().forEach(item => {
+        let row = `<tr>
+            <td><b>${item.jam}</b></td>
+            <td>${item.nama}</td>
+            <td style="color: green; font-weight:bold;">✅ HADIR</td>
+        </tr>`;
+        tbody.innerHTML += row;
+    });
+    countSpan.innerText = dataAbsen.length;
+}
+
+function prosesAbsensi(decodedText) {
+    try {
+        // Membaca nama dari parameter URL di QR Code (?nama=...)
+        const url = new URL(decodedText);
+        const namaSiswa = url.searchParams.get("nama");
+        
+        if (!namaSiswa) return;
+        
+        const sekarang = new Date();
+        const jamStr = sekarang.getHours().toString().padStart(2, '0') + ':' + sekarang.getMinutes().toString().padStart(2, '0') + ':' + sekarang.getSeconds().toString().padStart(2, '0');
+        
+        // Anti double-scan dalam menit yang sama
+        const sudahAbsen = dataAbsen.some(item => item.nama === namaSiswa && item.menit === sekarang.getMinutes());
+        if (sudahAbsen) return;
+
+        // Efek Berhasil
+        audioBip.play();
+        const notif = document.getElementById("notif");
+        notif.innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
+        notif.className = "status-success";
+        
+        // Simpan data
+        dataAbsen.push({ nama: namaSiswa, jam: jamStr, menit: screenY });
+        localStorage.setItem('absen_sdn_serut', JSON.stringify(dataAbsen));
+        
+        updateTable();
+        setTimeout(() => { notif.className = ""; }, 2000);
+
+    } catch (e) {
+        console.log("QR Code tidak valid atau bukan format link absen.");
+    }
+}
+
+// Jalankan Kamera Otomatis
+const html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} });
+html5QrcodeScanner.render(prosesAbsensi);
+
+function clearAbsen() {
+    if (confirm("Hapus semua data absen hari ini?")) {
+        dataAbsen = [];
+        localStorage.removeItem('absen_sdn_serut');
+        updateTable();
+    }
+}
+
+updateTable();
+</script>
+</body>
+</html>
