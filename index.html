@@ -89,10 +89,19 @@ function render() {
         ctx.strokeText(nama, 120, 1930); 
         ctx.fillText(nama, 120, 1930); 
 
-        // 4. Jalankan QR Code
+        // 4. Jalankan QR Code (Sudah Diperbarui menjadi Link Absen Otomatis)
         const qrContainer = document.getElementById("qrSource");
         qrContainer.innerHTML = "";
-        new QRCode(qrContainer, { text: nama || "SISWA", width: 300, height: 300 });
+        
+        // Membuat link dinamis menuju halaman absen dengan parameter nama siswa
+        const linkAbsen = "https://promttext.github.io/kartu-cita-cita/absen.html?nama=" + encodeURIComponent(nama || "SISWA");
+        
+        new QRCode(qrContainer, { 
+            text: linkAbsen, 
+            width: 300, 
+            height: 300,
+            correctLevel: QRCode.CorrectLevel.H // Memperkuat ketahanan QR agar lebih mudah dibaca kamera
+        });
 
         // Beri jeda agar QR selesai digenerate sebelum ditempel ke canvas
         setTimeout(() => {
