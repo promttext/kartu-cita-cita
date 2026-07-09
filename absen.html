@@ -15,26 +15,22 @@
         .log-table th { background: #1565c0; color: white; }
         #notif { font-size: 24px; font-weight: bold; margin: 15px 0; min-height: 35px; color: #2e7d32; }
         .status-success { animation: pop 0.5s ease-in-out; }
-        .file-input-wrapper { margin-top: 15px; padding: 10px; border: 2px dashed #1565c0; border-radius: 8px; background: #f0f7ff; }
+        .btn-utama { padding: 12px 20px; background: #1565c0; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; margin-bottom: 15px; }
         @keyframes pop { 0% { transform: scale(0.8); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
     <h1>🚨 PANEL ABSENSI OTOMATIS SDN SERUT 01 🚨</h1>
-    <p>Arahkan QR Twibbon ke Kamera Belakang HP, atau upload file fotonya langsung di bawah.</p>
+    <p>Halaman Khusus Laptop Petugas / Guru Piket.</p>
+
+    <button id="startBtn" class="btn-utama" onclick="mulaiScanner()">Mulai Aktifkan Kamera & Suara</button>
 
     <div class="container">
         <div class="box">
-            <h3>📷 SCANNER UTAMA</h3>
+            <h3>📷 SCANNER KAMERA</h3>
             <div id="reader"></div>
-            
-            <div class="file-input-wrapper">
-                <p style="margin: 0 0 8px 0; font-size: 14px; font-weight: bold; color: #1565c0;">Uji Coba 1 HP? Scan Lewat File Gambar:</p>
-                <input type="file" id="qr-input-file" accept="image/*" style="width:100%;">
-            </div>
-            
-            <div id="notif">Menunggu QR Code Siswa...</div>
+            <div id="notif">Klik tombol di atas untuk menyalakan kamera...</div>
         </div>
 
         <div class="box">
@@ -56,7 +52,9 @@
     </div>
 
 <script>
+// Sumber suara bip yang valid
 const audioBip = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav');
+
 let dataAbsen = JSON.parse(localStorage.getItem('absen_sdn_serut')) || [];
 
 function updateTable() {
@@ -77,8 +75,10 @@ function updateTable() {
 
 function prosesAbsensi(decodedText) {
     try {
+        // Proteksi: abaikan jika teks QR tidak mengandung parameter nama
         if (!decodedText.includes("nama=")) return;
 
+        // Membaca URL secara aman
         const url = new URL(decodedText);
         const namaSiswa = url.searchParams.get("nama");
         
@@ -92,7 +92,9 @@ function prosesAbsensi(decodedText) {
         const sudahAbsen = dataAbsen.some(item => item.nama === namaSiswa && item.menit === menitSekarang);
         if (sudahAbsen) return;
 
-        audioBip.play().catch(e => console.log("Izin audio aktif"));
+        // Mainkan suara bip secara aman
+        audioBip.play().catch(e => console.log("Menunggu interaksi klik pertama untuk audio"));
+        
         const notif = document.getElementById("notif");
         notif.innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
         notif.className = "status-success";
@@ -104,40 +106,28 @@ function prosesAbsensi(decodedText) {
         setTimeout(() => { notif.className = ""; }, 2500);
 
     } catch (e) {
-        console.error("Format QR Code tidak dikenal:", e);
+        console.error("Mendapat scan teks non-URL, sistem mengabaikan aman.");
     }
 }
 
-// 1. INISIALISASI SCANNER KAMERA (Dipaksa pakai Kamera Belakang Anti-Mirror)
-const html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-    fps: 15, 
-    qrbox: {width: 260, height: 260},
-    rememberLastUsedCamera: true,
-    supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA]
-});
+// Fungsi utama untuk menyalakan scanner setelah tombol diklik
+function mulaiScanner() {
+    // Memancing aktivasi audio audioBip agar diizinkan oleh sistem browser laptop
+    audioBip.play().then(() => {
+        audioBip.pause();
+        audioBip.currentTime = 0;
+    }).catch(e => console.log("Audio diaktifkan"));
 
-// Menjalankan scanner kamera dengan konfigurasi kamera belakang resmi
-html5QrcodeScanner.render(prosesAbsensi);
+    document.getElementById("notif").innerText = "Menunggu QR Code Siswa...";
+    document.getElementById("startBtn").style.display = "none";
 
-// 2. INISIALISASI SCANNER LEWAT FILE GALERI HP (Solusi jika kamera bermasalah)
-const html5QrCode = new Html5Qrcode("reader");
-const fileInput = document.getElementById('qr-input-file');
-
-fileInput.addEventListener('change', e => {
-    if (e.target.files.length == 0) return;
-    
-    const imageFile = e.target.files[0];
-    // Scan langsung file gambar twibbon yang diupload
-    html5QrCode.scanFile(imageFile, true)
-        .then(decodedText => {
-            prosesAbsensi(decodedText);
-            fileInput.value = ""; // Reset input file setelah berhasil
-        })
-        .catch(err => {
-            alert("QR Code tidak ditemukan pada gambar ini. Pastikan gambar twibbon jelas.");
-            fileInput.value = "";
-        });
-});
+    const html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+        fps: 15, 
+        qrbox: {width: 250, height: 250},
+        rememberLastUsedCamera: true
+    });
+    html5QrcodeScanner.render(prosesAbsensi);
+}
 
 function clearAbsen() {
     if (confirm("Hapus semua data absen hari ini?")) {
