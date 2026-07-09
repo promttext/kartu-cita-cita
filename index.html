@@ -55,9 +55,22 @@ function render() {
         ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
 
         // 3. Nama
-        const nama = (document.getElementById("nama").value || "").toUpperCase();
-        ctx.fillStyle = "#111"; ctx.textAlign = "center"; ctx.font = "bold 80px Arial";
-        ctx.fillText(nama, 764, 1915);
+        // Nama siswa (Ganti dengan kode ini)
+const nama = (document.getElementById("nama").value || "").toUpperCase();
+
+// Setting gaya teks
+ctx.fillStyle = "#FFFFFF";      // Warna putih
+ctx.strokeStyle = "#000000";    // Warna stroke (garis pinggir) hitam
+ctx.lineWidth = 8;              // Ketebalan garis pinggir
+ctx.textAlign = "left";         // Rata kiri
+
+// Menghitung ukuran font otomatis
+const fontSize = autoFont(ctx, nama, 1000, 70); 
+ctx.font = `bold ${fontSize}px Arial`;
+
+// Cetak garis pinggir dulu, baru teks putih di atasnya
+ctx.strokeText(nama, 100, 1950); 
+ctx.fillText(nama, 100, 1950);
 
         // 4. QR Code
         const qrContainer = document.getElementById("qrSource");
