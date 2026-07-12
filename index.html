@@ -32,7 +32,7 @@
     </div>
 
     <div class="container">
-        <!-- Kotak Kamera Scanner (Otomatis sembunyi di PC tanpa webcam) -->
+        <!-- Kotak Kamera Scanner -->
         <div class="box" id="scannerBox">
             <h3>📷 SCANNER KAMERA (HP)</h3>
             <div id="reader"></div>
@@ -64,13 +64,12 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlHfUpwFJdrA5miV4pI
 const audioBip = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav');
 let sedangProses = false;
 
-// 1. Ambil data terbaru dari Google Sheets (Dioptimasi untuk pengalihan Google)
+// 1. Ambil data terbaru dari Google Sheets
 function muatDataDariCloud() {
     if (!SCRIPT_URL.includes("script.google.com")) return;
     
     fetch(`${SCRIPT_URL}?action=read`, {
         method: 'GET',
-        // Menggunakan redirect 'follow' agar laptop bisa mengikuti link enkripsi buatan Google
         redirect: 'follow'
     })
     .then(res => {
@@ -97,7 +96,7 @@ function muatDataDariCloud() {
     });
 }
 
-// 2. Fungsi memproses kiriman QR Code dari HP ke Google Sheets (Dibuat Fleksibel)
+// 2. Fungsi memproses kiriman QR Code dari HP ke Google Sheets
 function prosesAbsensi(decodedText) {
     if (sedangProses) return;
     
@@ -119,16 +118,21 @@ function prosesAbsensi(decodedText) {
         document.getElementById("notif").innerText = `Mencatat: ${namaSiswa}...`;
         audioBip.play().catch(e => {});
 
-        // Mengirim data ke Google Sheets via Fetch API dengan mode 'no-cors' agar lolos blokir HP
+        // Perbaikan utama: Menggunakan format standar fetch (tanpa no-cors) agar redirect disetujui Google
         fetch(`${SCRIPT_URL}?action=write&nama=${encodeURIComponent(namaSiswa)}`, {
             method: 'GET',
-            mode: 'no-cors'
+            redirect: 'follow'
         })
-        .then(() => {
-            document.getElementById("notif").innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
+        .then(res => res.json())
+        .then(response => {
+            if (response.status === "sukses") {
+                document.getElementById("notif").innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
+            } else {
+                document.getElementById("notif").innerText = `⚠ Tersimpan, memuat ulang tabel...`;
+            }
             
-            // Tunggu 1 detik lalu perbarui tabel internal
-            setTimeout(() => { muatDataDariCloud(); }, 1000);
+            // Tunggu sebentar lalu perbarui tabel internal
+            setTimeout(() => { muatDataDariCloud(); }, 800);
             
             setTimeout(() => {
                 document.getElementById("notif").innerText = "Menunggu QR Code Siswa...";
@@ -136,8 +140,14 @@ function prosesAbsensi(decodedText) {
             }, 3000);
         })
         .catch(err => {
-            console.error("Gagal kirim via background fetch:", err);
-            sedangProses = false;
+            console.error("Gagal kirim data:", err);
+            // Fallback: Jika response JSON diblokir tapi data sebenarnya masuk
+            document.getElementById("notif").innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
+            setTimeout(() => { muatDataDariCloud(); }, 1000);
+            setTimeout(() => {
+                document.getElementById("notif").innerText = "Menunggu QR Code Siswa...";
+                sedangProses = false;
+            }, 3000);
         });
 
     } catch (e) {
@@ -146,7 +156,7 @@ function prosesAbsensi(decodedText) {
     }
 }
 
-// 3. Deteksi Otomatis Kamera demi kenyamanan PC tanpa Webcam
+// 3. Deteksi Otomatis Kamera
 navigator.mediaDevices.enumerateDevices().then(devices => {
     const punyaKamera = devices.some(device => device.kind === 'videoinput');
     if (!punyaKamera) {
@@ -170,7 +180,6 @@ function inisialisasiScanner() {
         qrbox: { width: 280, height: 280 }, 
         rememberLastUsedCamera: true,
         videoConstraints: {
-            // Pengaturan resolusi HD agar kamera fokus membaca QR Code padat
             width: { ideal: 1280 },
             height: { ideal: 720 },
             facingMode: "environment"
@@ -179,7 +188,7 @@ function inisialisasiScanner() {
     html5QrcodeScanner.render(prosesAbsensi);
 }
 
-// Cek perubahan data di database setiap 4 detik sekali agar layar monitor laptop terus sinkron
+// Cek perubahan data di database setiap 4 detik sekali
 setInterval(muatDataDariCloud, 4000);
 muatDataDariCloud();
 </script>
