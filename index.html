@@ -143,10 +143,15 @@ navigator.mediaDevices.enumerateDevices().then(devices => {
 });
 
 function inisialisasiScanner() {
+    // Optimasi resolusi kamera khusus untuk QR Code berkepadatan tinggi
     const html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-        fps: 10, 
-        qrbox: {width: 250, height: 250},
-        rememberLastUsedCamera: true
+        fps: 20, // Menaikkan frame rate agar deteksi lebih responsif
+        qrbox: { width: 280, height: 280 }, // Memperbesar kotak bidik
+        rememberLastUsedCamera: true,
+        videoConstraints: {
+            window: { min: 720, ideal: 1080, max: 1440 }, // Memaksa browser menggunakan resolusi HD/Full HD agar kotak QR tidak blur
+            facingMode: "environment" // Mengunci otomatis ke kamera belakang utama HP
+        }
     });
     html5QrcodeScanner.render(prosesAbsensi);
 }
