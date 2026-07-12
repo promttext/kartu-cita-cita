@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tampilan Absen - SDN Serut 01</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #1565c0, #2e7d32);
+    color: white;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .card {
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 24px;
+    padding: 40px;
+    text-align: center;
+    max-width: 600px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .waiting { font-size: 28px; opacity: 0.8; }
+  .foto {
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 6px solid white;
+    margin: 0 auto 20px;
+    display: block;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+  .sukses {
+    font-size: 42px;
+    font-weight: bold;
+    color: #a5f3a5;
+    margin-bottom: 10px;
+    animation: pop 0.5s ease;
+  }
+  .nama { font-size: 48px; font-weight: bold; margin: 10px 0; }
+  .kelas { font-size: 24px; opacity: 0.9; margin-bottom: 15px; }
+  .waktu { font-size: 20px; opacity: 0.8; }
+  .status-dot {
+    display: inline-block;
+    width: 12px; height: 12px;
+    background: #4ade80;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: blink 1.5s infinite;
+  }
+  .status-bar {
+    position: fixed;
+    top: 20px; right: 20px;
+    background: rgba(0,0,0,0.4);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+  }
+  @keyframes pop { 0%{transform:scale(0.5);opacity:0} 100%{transform:scale(1);opacity:1} }
+  @keyframes blink { 50% { opacity: 0.3; } }
+</style>
+</head>
+<body>
+
+<div class="status-bar"><span class="status-dot"></span>Menunggu scan...</div>
+
+<div class="card" id="card">
+  <div class="waiting" id="content">
+    📷 Silakan scan barcode di HP<br><br>
+    <small style="opacity:0.7">Hasil absen akan muncul di sini otomatis</small>
+  </div>
+</div>
+
+<audio id="beep" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" preload="auto"></audio>
+
+<script>
+  const SCRIPT_URL = "GANTI_DENGAN_URL_WEB_APP_ANDA";
+  const FOTO_DEFAULT = "https://cdn-icons-png.flaticon.com/512/847/847969.png";
+  let lastTimestamp = 0;
+
+  async function cekAbsen() {
+    try {
+      const res = await fetch(SCRIPT_URL + "?action=last&t=" + Date.now());
+      const data = await res.json();
+      if (data.status !== 'sukses') return;
+
+      if (data.timestamp && data.timestamp !== lastTimestamp) {
+        lastTimestamp = data.timestamp;
+        tampilkan(data);
+      }
+    } catch (err) {
+      console.error("Gagal fetch:", err);
+    }
+  }
+
+  function tampilkan(data) {
+    document.getElementById('beep').play().catch(()=>{});
+    const foto = data.foto && data.foto.startsWith('http') ? data.foto : FOTO_DEFAULT;
+    const waktu = new Date(data.waktu).toLocaleString('id-ID');
+    document.getElementById('card').innerHTML = `
+      <img src="${foto}" class="foto" onerror="this.src='${FOTO_DEFAULT}'">
+      <div class="sukses">✅ ABSEN BERHASIL</div>
+      <div class="nama">${data.nama}</div>
+      <div class="kelas">${data.kelas}</div>
+      <div class="waktu">🕒 ${waktu}</div>
+    `;
+  }
+
+  // Polling setiap 2 detik
+  setInterval(cekAbsen, 2000);
+  cekAbsen();
+</script>
+</body>
+</html>
