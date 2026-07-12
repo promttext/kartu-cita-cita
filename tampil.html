@@ -80,34 +80,39 @@
 <audio id="beep" src="https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg" preload="auto"></audio>
 
 <script>
+  // ⚠️ URL ini HARUS SAMA PERSIS dengan yang ada di absen.html
   const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlHfUpwFJdrA5miV4pI4L48Zu_XjKJrhg3SFRKx_PbWLDMNwHwqHwLjIADUIUvJwrBXw/exec";
   const FOTO_DEFAULT = "https://cdn-icons-png.flaticon.com/512/847/847969.png";
   let lastTimestamp = 0;
+  let pertamaKali = true;
 
   async function cekAbsen() {
     try {
-      const res = await fetch(SCRIPT_URL + "?action=last&t=" + Date.now());
-      const data = await res.json();
-      if (data.status !== 'sukses') return;
+      const res = await fetch(SCRIPT_URL + "?action=last&t=" + Date.now(), { redirect: 'follow' });
+      const resp = await res.json();
+      if (resp.status !== 'sukses' || !resp.data) return;
 
+      const data = resp.data;
       if (data.timestamp && data.timestamp !== lastTimestamp) {
+        const perubahan = lastTimestamp !== 0; // jangan bunyi saat load pertama
         lastTimestamp = data.timestamp;
-        tampilkan(data);
+        tampilkan(data, perubahan || !pertamaKali ? true : false);
+        pertamaKali = false;
       }
     } catch (err) {
       console.error("Gagal fetch:", err);
     }
   }
 
-  function tampilkan(data) {
-    document.getElementById('beep').play().catch(()=>{});
+  function tampilkan(data, bunyi) {
+    if (bunyi) document.getElementById('beep').play().catch(()=>{});
     const foto = data.foto && data.foto.startsWith('http') ? data.foto : FOTO_DEFAULT;
-    const waktu = new Date(data.waktu).toLocaleString('id-ID');
+    const waktu = data.waktu ? new Date(data.waktu).toLocaleString('id-ID') : '';
     document.getElementById('card').innerHTML = `
       <img src="${foto}" class="foto" onerror="this.src='${FOTO_DEFAULT}'">
       <div class="sukses">✅ ABSEN BERHASIL</div>
-      <div class="nama">${data.nama}</div>
-      <div class="kelas">${data.kelas}</div>
+      <div class="nama">${data.nama || ''}</div>
+      <div class="kelas">${data.kelas || ''}</div>
       <div class="waktu">🕒 ${waktu}</div>
     `;
   }
