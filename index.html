@@ -39,12 +39,10 @@ let userImage = null, posX = 0, posY = 0, scale = 1.0, dragging = false, startX 
 const preview = document.getElementById("preview"), canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-// Fungsi pembantu rasio canvas (diperlukan untuk akurasi drag)
 function getCanvasRatio() {
     return preview.clientWidth ? canvas.width / preview.clientWidth : 1;
 }
 
-// FUNGSI AUTOFONT (Menghindari error crash)
 function autoFont(ctx, text, maxWidth, startSize) {
     let size = startSize;
     while (size > 20) {
@@ -76,32 +74,28 @@ function render() {
 
         // 3. Nama Siswa (Rata Kiri, Putih, Stroke Hitam)
         const nama = (document.getElementById("nama").value || "").toUpperCase();
-        ctx.fillStyle = "#FFFFFF";       // Warna teks putih
-        ctx.strokeStyle = "#000000";     // Warna garis pinggir hitam
-        ctx.lineWidth = 10;              // Ketebalan stroke
-        ctx.textAlign = "left";          // Rata Kiri
+        ctx.fillStyle = "#FFFFFF";
+        ctx.strokeStyle = "#000000";
+        ctx.lineWidth = 10;
+        ctx.textAlign = "left";
 
-        // Hitung ukuran font otomatis agar tidak kepanjangan
-        const fontSize = autoFont(ctx, nama, 1000, 75); 
+        const fontSize = autoFont(ctx, nama, 1000, 75);
         ctx.font = `bold ${fontSize}px Arial`;
 
-        // Gambar tulisan di koordinat X=120 (Kiri) dan Y=1930
-        ctx.strokeText(nama, 120, 1930); 
-        ctx.fillText(nama, 120, 1930); 
+        ctx.strokeText(nama, 120, 1930);
+        ctx.fillText(nama, 120, 1930);
 
-        // 4. Jalankan QR Code
+        // 4. Jalankan QR Code (isi = nama, cocok dengan scanner absen.html)
         const qrContainer = document.getElementById("qrSource");
         qrContainer.innerHTML = "";
         new QRCode(qrContainer, { text: nama || "SISWA", width: 300, height: 300 });
 
-        // Beri jeda agar QR selesai digenerate sebelum ditempel ke canvas
         setTimeout(() => {
             const qrImg = qrContainer.querySelector("img");
             if (qrImg) {
                 ctx.drawImage(qrImg, 1063, 1580, 390, 390);
             }
-            
-            // Ekspor final ke tag preview <img>
+
             try {
                 const data = canvas.toDataURL("image/png");
                 preview.src = data;
@@ -125,24 +119,19 @@ function render() {
     templateImage.src = TEMPLATE_SRC;
 }
 
-/* ==========================
-   INTERAKSI MOUSE (PC/Laptop)
-========================== */
+/* ========================== INTERAKSI MOUSE (PC/Laptop) ========================== */
 preview.addEventListener("mousedown", e => {
     dragging = true;
     startX = e.clientX - posX;
     startY = e.clientY - posY;
 });
-
 window.addEventListener("mouseup", () => dragging = false);
-
 window.addEventListener("mousemove", e => {
     if (!dragging || !userImage) return;
     posX = e.clientX - startX;
     posY = e.clientY - startY;
     render();
 });
-
 preview.addEventListener("wheel", e => {
     e.preventDefault();
     scale += e.deltaY * -0.001;
@@ -150,9 +139,7 @@ preview.addEventListener("wheel", e => {
     render();
 });
 
-/* ==========================
-   INTERAKSI SENTUH (HP)
-========================== */
+/* ========================== INTERAKSI SENTUH (HP) ========================== */
 let pinchStart = 0;
 preview.addEventListener("touchstart", e => {
     if (e.touches.length === 1) {
@@ -166,7 +153,6 @@ preview.addEventListener("touchstart", e => {
         pinchStart = Math.hypot(dx, dy);
     }
 });
-
 preview.addEventListener("touchmove", e => {
     e.preventDefault();
     if (e.touches.length === 1 && dragging) {
@@ -184,12 +170,9 @@ preview.addEventListener("touchmove", e => {
         render();
     }
 }, { passive: false });
-
 preview.addEventListener("touchend", () => { dragging = false; });
 
-/* ==========================
-   INPUT HANDLING
-========================== */
+/* ========================== INPUT HANDLING ========================== */
 document.getElementById("foto").addEventListener("change", e => {
     const f = e.target.files[0];
     if (!f) return;
@@ -197,7 +180,6 @@ document.getElementById("foto").addEventListener("change", e => {
     img.onload = () => { userImage = img; posX=0; posY=0; scale=1.0; render(); };
     img.src = URL.createObjectURL(f);
 });
-
 document.getElementById("nama").addEventListener("input", render);
 document.getElementById("renderBtn").addEventListener("click", render);
 </script>
