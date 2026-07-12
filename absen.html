@@ -50,8 +50,9 @@
     </div>
 
 <script>
-// ⚠️ GANTI dengan URL Web App HASIL DEPLOYMENT BARU Anda
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz3I_rzXnPD3NsRRiHNy5hzp-k7xz63xD0mTbBI1qkOE8l2s5S7eEbN_mZNyqKQafzJ/exec";
+// ⚠️ GANTI dengan URL Web App deployment TERBARU Anda.
+// URL ini HARUS SAMA PERSIS dengan yang ada di tampil.html
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlHfUpwFJdrA5miV4pI4L48Zu_XjKJrhg3SFRKx_PbWLDMNwHwqHwLjIADUIUvJwrBXw/exec";
 
 const audioBip = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav');
 let sedangProses = false;
@@ -63,18 +64,25 @@ function setNotif(pesan, isError = false) {
     el.className = isError ? "error" : "";
 }
 
+function formatJam(iso) {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    if (isNaN(d)) return iso;
+    return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 function muatDataDariCloud() {
-    fetch(`${SCRIPT_URL}?action=read&t=${Date.now()}`, { method: 'GET', redirect: 'follow' })
+    fetch(`${SCRIPT_URL}?action=list&limit=50&t=${Date.now()}`, { method: 'GET', redirect: 'follow' })
     .then(res => res.json())
-    .then(data => {
-        if (!Array.isArray(data)) return;
+    .then(resp => {
+        const data = Array.isArray(resp.data) ? resp.data : [];
         const tbody = document.getElementById("logMulai");
         document.getElementById("count").innerText = data.length;
         tbody.innerHTML = "";
-        data.reverse().forEach(item => {
+        data.forEach(item => {
             tbody.innerHTML += `<tr>
-                <td><b>${item.jam}</b></td>
-                <td>${item.nama}</td>
+                <td><b>${formatJam(item.waktu)}</b></td>
+                <td>${item.nama || ''}</td>
                 <td style="color:green;font-weight:bold;">✅ HADIR</td>
             </tr>`;
         });
@@ -120,15 +128,16 @@ function prosesAbsensi(decodedText) {
         })
         .then(response => {
             if (response.status === "sukses") {
-                setNotif(`👋 SELAMAT DATANG, ${response.nama}!`);
+                const nama = (response.data && response.data.nama) || namaSiswa;
+                setNotif(`👋 SELAMAT DATANG, ${nama}!`);
                 muatDataDariCloud();
             } else {
-                setNotif(`⚠ Gagal: ${response.pesan || "server menolak"}`, true);
+                setNotif(`⚠ Gagal: ${response.message || "server menolak"}`, true);
             }
         })
         .catch(err => {
             console.error("Gagal kirim data:", err);
-            setNotif(`❌ Gagal kirim. Cek koneksi / URL Script.`, true);
+            setNotif(`❌ Gagal kirim. Cek koneksi / URL Script / akses "Anyone".`, true);
         })
         .finally(() => {
             setTimeout(() => {
