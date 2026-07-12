@@ -3,212 +3,157 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SD Negeri Serut 01</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <title>Sistem Absen Otomatis - SDN Serut 01</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; max-width: 900px; margin: auto; padding: 20px; text-align: center; }
-        .panel { background: #fff; padding: 20px; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,.15); }
-        .logo-web { max-width: 120px; width: 100%; height: auto; margin: 10px auto 15px; display: block; }
-        input { width: 100%; padding: 12px; margin: 8px 0; box-sizing: border-box; }
-        button { padding: 12px 20px; border: none; border-radius: 10px; background: #1565c0; color: white; cursor: pointer; font-weight: bold; }
-        #preview { max-width: 420px; width: 100%; margin-top: 15px; border-radius: 12px; cursor: move; background: #eee; display: inline-block; }
-        canvas { display: none; }
-        #qrSource { visibility: hidden; position: fixed; top: 0; left: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f3; margin: 0; padding: 20px; text-align: center; color: #333; }
+        .container { max-width: 1000px; margin: auto; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+        .box { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); flex: 1; min-width: 320px; }
+        #reader { width: 100%; max-width: 400px; margin: auto; border-radius: 12px; overflow: hidden; background: #222; }
+        .log-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .log-table th, .log-table td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
+        .log-table th { background: #1565c0; color: white; }
+        #notif { font-size: 24px; font-weight: bold; margin: 15px 0; min-height: 35px; color: #2e7d32; }
+        .pc-only { display: none; }
+        @media (min-width: 768px) {
+            .pc-only { display: block; }
+        }
     </style>
 </head>
 <body>
 
-<div class="panel">
-    <img src="logo.png" alt="Logo Sekolah" class="logo-web">
-    <h2>SD Negeri Serut 01</h2>
-    <input type="file" id="foto" accept="image/*">
-    <input type="text" id="nama" placeholder="Masukkan Nama Siswa">
-    <p><b>Geser foto dengan mouse/jari. Zoom dengan roda mouse atau cubit layar HP.</b></p>
-    <button id="renderBtn">Preview & Update QR</button>
-    <a id="download" style="display:none;"><button type="button">Download PNG</button></a>
-    <br><br>
-    <img id="preview" alt="Preview">
-</div>
+    <h1>🚨 PANEL ABSENSI ONLINE SDN SERUT 01 🚨</h1>
+    
+    <!-- Notifikasi Deteksi Perangkat PC -->
+    <div class="pc-only" id="pcNotice" style="display:none;">
+        <p style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; font-weight: bold; max-width: 700px; margin: 0 auto 15px auto;">
+            🖥️ Mode Monitor PC Aktif (Tanpa Kamera). Gunakan HP Anda untuk scan QR Code, tabel di bawah akan terisi otomatis secara real-time.
+        </p>
+    </div>
 
-<div id="qrSource"></div>
-<canvas id="canvas" width="1529" height="2048"></canvas>
+    <div class="container">
+        <!-- Kotak Kamera Scanner (Otomatis sembunyi di PC tanpa webcam) -->
+        <div class="box" id="scannerBox">
+            <h3>📷 SCANNER KAMERA (HP)</h3>
+            <div id="reader"></div>
+            <div id="notif">Menunggu QR Code Siswa...</div>
+        </div>
+
+        <!-- Tabel Daftar Hadir -->
+        <div class="box">
+            <h3>📅 DAFTAR HADIR REAL-TIME (<span id="count">0</span> Siswa)</h3>
+            <div style="max-height: 450px; overflow-y: auto;">
+                <table class="log-table">
+                    <thead>
+                        <tr>
+                            <th>Waktu</th>
+                            <th>Nama Siswa</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logMulai"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
 <script>
-const TEMPLATE_SRC = "template.png";
-let userImage = null, posX = 0, posY = 0, scale = 1.0, dragging = false, startX = 0, startY = 0;
-const preview = document.getElementById("preview"), canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
+// Menghubungkan langsung dengan Web App Google Sheets Anda
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw8fLSro1fU6k0PxN4IAaRNVF7Bsuii1zsL2h_xVz3f7aktLE7k9SV8sWTlMf-kDNf6VA/exec"; 
 
-// Fungsi pembantu rasio canvas (diperlukan untuk akurasi drag)
-function getCanvasRatio() {
-    return preview.clientWidth ? canvas.width / preview.clientWidth : 1;
-}
+const audioBip = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav');
+let sedangProses = false;
 
-// FUNGSI AUTOFONT (Menghindari error crash)
-function autoFont(ctx, text, maxWidth, startSize) {
-    let size = startSize;
-    while (size > 20) {
-        ctx.font = `bold ${size}px Arial`;
-        if (ctx.measureText(text).width <= maxWidth) {
-            return size;
-        }
-        size--;
-    }
-    return 20;
-}
-
-function render() {
-    if (!userImage) return;
-
-    const templateImage = new Image();
-    templateImage.crossOrigin = "anonymous";
-
-    templateImage.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // 1. Gambar Foto
-        const cx = 775, cy = 1055, minTargetSize = 900;
-        const base = Math.max(minTargetSize / userImage.width, minTargetSize / userImage.height) * scale;
-        ctx.drawImage(userImage, cx - (userImage.width * base)/2 + posX, cy - (userImage.height * base)/2 + posY, userImage.width * base, userImage.height * base);
-
-        // 2. Gambar Template
-        ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
-
-        // 3. Nama Siswa (Rata Kiri, Putih, Stroke Hitam)
-        const nama = (document.getElementById("nama").value || "").toUpperCase();
-        ctx.fillStyle = "#FFFFFF";       // Warna teks putih
-        ctx.strokeStyle = "#000000";     // Warna garis pinggir hitam
-        ctx.lineWidth = 10;              // Ketebalan stroke
-        ctx.textAlign = "left";          // Rata Kiri
-
-        // Hitung ukuran font otomatis agar tidak kepanjangan
-        const fontSize = autoFont(ctx, nama, 1000, 75); 
-        ctx.font = `bold ${fontSize}px Arial`;
-
-        // Gambar tulisan di koordinat X=120 (Kiri) dan Y=1930
-        ctx.strokeText(nama, 120, 1930); 
-        ctx.fillText(nama, 120, 1930); 
-
-        // 4. Jalankan QR Code (Sudah Diperbarui menjadi Link Absen Otomatis)
-        const qrContainer = document.getElementById("qrSource");
-        qrContainer.innerHTML = "";
-        
-        // Membuat link dinamis menuju halaman absen dengan parameter nama siswa
-        const linkAbsen = "https://promttext.github.io/kartu-cita-cita/absen.html?nama=" + encodeURIComponent(nama || "SISWA");
-        
-        new QRCode(qrContainer, { 
-            text: linkAbsen, 
-            width: 300, 
-            height: 300,
-            correctLevel: QRCode.CorrectLevel.H // Memperkuat ketahanan QR agar lebih mudah dibaca kamera
-        });
-
-        // Beri jeda agar QR selesai digenerate sebelum ditempel ke canvas
-        setTimeout(() => {
-            const qrImg = qrContainer.querySelector("img");
-            if (qrImg) {
-                ctx.drawImage(qrImg, 1063, 1580, 390, 390);
-            }
+// 1. Ambil data terbaru dari Google Sheets secara real-time
+function muatDataDariCloud() {
+    fetch(`${SCRIPT_URL}?action=read`)
+        .then(res => res.json())
+        .then(data => {
+            const tbody = document.getElementById("logMulai");
+            document.getElementById("count").innerText = data.length;
+            tbody.innerHTML = "";
             
-            // Ekspor final ke tag preview <img>
-            try {
-                const data = canvas.toDataURL("image/png");
-                preview.src = data;
-
-                const dl = document.getElementById("download");
-                if (dl) {
-                    dl.href = data;
-                    dl.download = "Kartu-Cita-Cita.png";
-                    dl.style.display = "inline-block";
-                }
-            } catch (err) {
-                console.error("Gagal ekspor gambar:", err);
-            }
-        }, 300);
-    };
-
-    templateImage.onerror = () => {
-        alert("Gagal memuat file template.png!");
-    };
-
-    templateImage.src = TEMPLATE_SRC;
+            // Susun nama dari yang paling baru absen di baris paling atas
+            data.reverse().forEach(item => {
+                let row = `<tr>
+                    <td><b>${item.jam}</b></td>
+                    <td>${item.nama}</td>
+                    <td style="color: green; font-weight:bold;">✅ HADIR</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        })
+        .catch(err => console.log("Menunggu data masuk / Sinkronisasi..."));
 }
 
-/* ==========================
-   INTERAKSI MOUSE (PC/Laptop)
-========================== */
-preview.addEventListener("mousedown", e => {
-    dragging = true;
-    startX = e.clientX - posX;
-    startY = e.clientY - posY;
-});
+// 2. Fungsi memproses kiriman QR Code dari HP ke Google Sheets
+function prosesAbsensi(decodedText) {
+    if (sedangProses) return;
+    try {
+        if (!decodedText.includes("nama=")) return;
 
-window.addEventListener("mouseup", () => dragging = false);
+        const url = new URL(decodedText);
+        const namaSiswa = url.searchParams.get("nama");
+        
+        if (!namaSiswa) return;
+        
+        sedangProses = true;
+        document.getElementById("notif").innerText = `Mencatat: ${namaSiswa}...`;
+        audioBip.play().catch(e => {});
 
-window.addEventListener("mousemove", e => {
-    if (!dragging || !userImage) return;
-    posX = e.clientX - startX;
-    posY = e.clientY - startY;
-    render();
-});
+        // Mengirim data ke Google Sheets via Fetch API
+        fetch(`${SCRIPT_URL}?action=write&nama=${encodeURIComponent(namaSiswa)}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById("notif").innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
+                muatDataDariCloud(); // Paksa re-fetch tabel seketika
+                setTimeout(() => {
+                    document.getElementById("notif").innerText = "Menunggu QR Code Siswa...";
+                    sedangProses = false;
+                }, 2500);
+            })
+            .catch(err => {
+                alert("Gagal mengirim data. Pastikan HP terhubung internet.");
+                sedangProses = false;
+            });
 
-preview.addEventListener("wheel", e => {
-    e.preventDefault();
-    scale += e.deltaY * -0.001;
-    scale = Math.max(0.3, Math.min(scale, 5));
-    render();
-});
-
-/* ==========================
-   INTERAKSI SENTUH (HP)
-========================== */
-let pinchStart = 0;
-preview.addEventListener("touchstart", e => {
-    if (e.touches.length === 1) {
-        dragging = true;
-        startX = e.touches[0].clientX - posX;
-        startY = e.touches[0].clientY - posY;
+    } catch (e) {
+        console.error(e);
     }
-    if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        pinchStart = Math.hypot(dx, dy);
+}
+
+// 3. Deteksi Otomatis Kamera demi kenyamanan PC tanpa Webcam
+navigator.mediaDevices.enumerateDevices().then(devices => {
+    const punyaKamera = devices.some(device => device.kind === 'videoinput');
+    if (!punyaKamera) {
+        // Jika tidak punya kamera (seperti PC Anda), sembunyikan kotak scanner & munculkan info monitor
+        document.getElementById("scannerBox").style.display = "none";
+        document.getElementById("pcNotice").style.display = "block";
+    } else {
+        inisialisasiScanner();
+    }
+}).catch(() => {
+    // Jalankan pengaman jika browser menolak mentah-mentah akses media peranti
+    if (window.innerWidth >= 768) {
+        document.getElementById("scannerBox").style.display = "none";
+        document.getElementById("pcNotice").style.display = "block";
+    } else {
+        inisialisasiScanner();
     }
 });
 
-preview.addEventListener("touchmove", e => {
-    e.preventDefault();
-    if (e.touches.length === 1 && dragging) {
-        posX = e.touches[0].clientX - startX;
-        posY = e.touches[0].clientY - startY;
-        render();
-    }
-    if (e.touches.length === 2) {
-        const dx = e.touches[0].clientX - e.touches[1].clientX;
-        const dy = e.touches[0].clientY - e.touches[1].clientY;
-        const distance = Math.hypot(dx, dy);
-        scale *= distance / pinchStart;
-        scale = Math.max(0.3, Math.min(scale, 5));
-        pinchStart = distance;
-        render();
-    }
-}, { passive: false });
+function inisialisasiScanner() {
+    const html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
+        fps: 10, 
+        qrbox: {width: 250, height: 250},
+        rememberLastUsedCamera: true
+    });
+    html5QrcodeScanner.render(prosesAbsensi);
+}
 
-preview.addEventListener("touchend", () => { dragging = false; });
-
-/* ==========================
-   INPUT HANDLING
-========================== */
-document.getElementById("foto").addEventListener("change", e => {
-    const f = e.target.files[0];
-    if (!f) return;
-    const img = new Image();
-    img.onload = () => { userImage = img; posX=0; posY=0; scale=1.0; render(); };
-    img.src = URL.createObjectURL(f);
-});
-
-document.getElementById("nama").addEventListener("input", render);
-document.getElementById("renderBtn").addEventListener("click", render);
+// Cek perubahan data di database setiap 3 detik sekali
+setInterval(muatDataDariCloud, 3000);
+muatDataDariCloud();
 </script>
 </body>
 </html>
