@@ -64,26 +64,38 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw8fLSro1fU6k0PxN4IA
 const audioBip = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav');
 let sedangProses = false;
 
-// 1. Ambil data terbaru dari Google Sheets secara real-time
+// 1. Ambil data terbaru dari Google Sheets secara real-time (Versi Anti-Blokir Laptop)
 function muatDataDariCloud() {
-    fetch(`${SCRIPT_URL}?action=read`)
-        .then(res => res.json())
-        .then(data => {
-            const tbody = document.getElementById("logMulai");
-            document.getElementById("count").innerText = data.length;
-            tbody.innerHTML = "";
-            
-            // Susun nama dari yang paling baru absen di baris paling atas
-            data.reverse().forEach(item => {
-                let row = `<tr>
-                    <td><b>${item.jam}</b></td>
-                    <td>${item.nama}</td>
-                    <td style="color: green; font-weight:bold;">✅ HADIR</td>
-                </tr>`;
-                tbody.innerHTML += row;
-            });
-        })
-        .catch(err => console.log("Menunggu data masuk / Sinkronisasi..."));
+    if (!SCRIPT_URL.includes("script.google.com")) return;
+    
+    // Menambahkan mode 'cors' dan cache 'no-cache' agar laptop dipaksa mengambil data paling segar
+    fetch(`${SCRIPT_URL}?action=read`, {
+        method: 'GET',
+        mode: 'cors',
+        cache: 'no-cache'
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('Jaringan bermasalah');
+        return res.json();
+    })
+    .then(data => {
+        const tbody = document.getElementById("logMulai");
+        document.getElementById("count").innerText = data.length;
+        tbody.innerHTML = "";
+        
+        // Susun nama dari yang paling baru absen di baris paling atas
+        data.reverse().forEach(item => {
+            let row = `<tr>
+                <td><b>${item.jam}</b></td>
+                <td>${item.nama}</td>
+                <td style="color: green; font-weight:bold;">✅ HADIR</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    })
+    .catch(err => {
+        console.log("Laptop sedang mencoba menghubungkan ke server database...", err);
+    });
 }
 
 // 2. Fungsi memproses kiriman QR Code dari HP ke Google Sheets
