@@ -104,10 +104,36 @@
     }
   }
 
+  function ucapkanNama(namaSiswa) {
+    if (!namaSiswa) return;
+    
+    // Kalimat ucapan selamat mengikuti MPLS pilihanmu
+    const kalimat = `Terima kasih, ${namaSiswa}. Selamat mengikuti masa pengenalan lingkungan sekolah di S D N Serut Nol Satu.`;
+    const ucapan = new SpeechSynthesisUtterance(kalimat);
+    
+    ucapan.lang = "id-ID"; // Format bahasa Indonesia
+    ucapan.rate = 0.9;     // Kecepatan disetel 0.9 (sedikit lambat) agar suara terdengar jelas di speaker
+    ucapan.pitch = 1.0;    // Nada suara normal
+    
+    window.speechSynthesis.speak(ucapan);
+  }
+
   function tampilkan(data, bunyi) {
-    if (bunyi) document.getElementById('beep').play().catch(()=>{});
+    if (bunyi) {
+      // Bunyi efek lonceng dulu, baru dilanjut suara ucapan MPLS
+      document.getElementById('beep').play()
+        .then(() => {
+          ucapkanNama(data.nama);
+        })
+        .catch(() => {
+          // Jika efek terblokir browser, suara ucapan langsung jalan sebagai cadangan
+          ucapkanNama(data.nama);
+        });
+    }
+
     const foto = data.foto && data.foto.startsWith('http') ? data.foto : FOTO_DEFAULT;
     const waktu = data.waktu ? new Date(data.waktu).toLocaleString('id-ID') : '';
+    
     document.getElementById('card').innerHTML = `
       <img src="${foto}" class="foto" onerror="this.src='${FOTO_DEFAULT}'">
       <div class="sukses">✅ ABSEN BERHASIL</div>
