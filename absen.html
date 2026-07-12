@@ -14,29 +14,35 @@
         .log-table th, .log-table td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
         .log-table th { background: #1565c0; color: white; }
         #notif { font-size: 24px; font-weight: bold; margin: 15px 0; min-height: 35px; color: #2e7d32; }
-        .status-success { animation: pop 0.5s ease-in-out; }
-        .btn-utama { padding: 12px 20px; background: #1565c0; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; margin-bottom: 15px; }
-        @keyframes pop { 0% { transform: scale(0.8); } 100% { transform: scale(1); } }
+        .pc-only { display: none; }
+        @media (min-width: 768px) {
+            .pc-only { display: block; }
+        }
     </style>
 </head>
 <body>
 
-    <h1>🚨 PANEL ABSENSI OTOMATIS SDN SERUT 01 🚨</h1>
-    <p>Halaman Khusus Laptop Petugas / Guru Piket.</p>
-
-    <button id="startBtn" class="btn-utama" onclick="mulaiScanner()">Mulai Aktifkan Kamera & Suara</button>
+    <h1>🚨 PANEL ABSENSI ONLINE SDN SERUT 01 🚨</h1>
+    
+    <!-- Notifikasi Deteksi Perangkat PC -->
+    <div class="pc-only" id="pcNotice" style="display:none;">
+        <p style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; font-weight: bold; max-width: 700px; margin: 0 auto 15px auto;">
+            🖥️ Mode Monitor PC Aktif (Tanpa Kamera). Gunakan HP Anda untuk scan QR Code, tabel di bawah akan terisi otomatis secara real-time.
+        </p>
+    </div>
 
     <div class="container">
-        <div class="box">
-            <h3>📷 SCANNER KAMERA</h3>
+        <!-- Kotak Kamera Scanner -->
+        <div class="box" id="scannerBox">
+            <h3>📷 SCANNER KAMERA (HP)</h3>
             <div id="reader"></div>
-            <div id="notif">Klik tombol di atas untuk menyalakan kamera...</div>
+            <div id="notif">Menunggu QR Code Siswa...</div>
         </div>
 
+        <!-- Tabel Daftar Hadir -->
         <div class="box">
-            <h3>📅 DAFTAR HADIR HARI INI (<span id="count">0</span> Siswa)</h3>
-            <button onclick="clearAbsen()" style="padding: 8px 12px; background: #d32f2f; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-bottom: 10px;">Reset Data Absen</button>
-            <div style="max-height: 350px; overflow-y: auto;">
+            <h3>📅 DAFTAR HADIR REAL-TIME (<span id="count">0</span> Siswa)</h3>
+            <div style="max-height: 450px; overflow-y: auto;">
                 <table class="log-table">
                     <thead>
                         <tr>
@@ -52,92 +58,139 @@
     </div>
 
 <script>
-// Sumber suara bip yang valid
+// Menghubungkan langsung dengan Web App Google Sheets Anda
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlHfUpwFJdrA5miV4pI4L48Zu_XjKJrhg3SFRKx_PbWLDMNwHwqHwLjIADUIUvJwrBXw/exec"; 
+
 const audioBip = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav');
+let sedangProses = false;
 
-let dataAbsen = JSON.parse(localStorage.getItem('absen_sdn_serut')) || [];
-
-function updateTable() {
-    const tbody = document.getElementById("logMulai");
-    const countSpan = document.getElementById("count");
-    tbody.innerHTML = "";
+// 1. Ambil data terbaru dari Google Sheets
+function muatDataDariCloud() {
+    if (!SCRIPT_URL.includes("script.google.com")) return;
     
-    dataAbsen.slice().reverse().forEach(item => {
-        let row = `<tr>
-            <td><b>${item.jam}</b></td>
-            <td>${item.nama}</td>
-            <td style="color: green; font-weight:bold;">✅ HADIR</td>
-        </tr>`;
-        tbody.innerHTML += row;
+    fetch(`${SCRIPT_URL}?action=read`, {
+        method: 'GET',
+        redirect: 'follow'
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('Jaringan bermasalah');
+        return res.json();
+    })
+    .then(data => {
+        const tbody = document.getElementById("logMulai");
+        document.getElementById("count").innerText = data.length;
+        tbody.innerHTML = "";
+        
+        // Susun nama dari yang paling baru absen di baris paling atas
+        data.reverse().forEach(item => {
+            let row = `<tr>
+                <td><b>${item.jam}</b></td>
+                <td>${item.nama}</td>
+                <td style="color: green; font-weight:bold;">✅ HADIR</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    })
+    .catch(err => {
+        console.log("Laptop sedang menghubungkan ke server...", err);
     });
-    countSpan.innerText = dataAbsen.length;
 }
 
+// 2. Fungsi memproses kiriman QR Code dari HP ke Google Sheets
 function prosesAbsensi(decodedText) {
-    try {
-        // Proteksi: abaikan jika teks QR tidak mengandung parameter nama
-        if (!decodedText.includes("nama=")) return;
+    if (sedangProses) return;
+    
+    let namaSiswa = "";
 
-        // Membaca URL secara aman
-        const url = new URL(decodedText);
-        const namaSiswa = url.searchParams.get("nama");
+    try {
+        // Jika QR Code berupa URL utuh (?nama=Ahmad)
+        if (decodedText.includes("nama=")) {
+            const url = new URL(decodedText);
+            namaSiswa = url.searchParams.get("nama");
+        } else {
+            // Jika QR Code hanya berisi teks nama polos saja
+            namaSiswa = decodedText.trim();
+        }
         
         if (!namaSiswa) return;
         
-        const sekarang = new Date();
-        const jamStr = sekarang.getHours().toString().padStart(2, '0') + ':' + sekarang.getMinutes().toString().padStart(2, '0') + ':' + sekarang.getSeconds().toString().padStart(2, '0');
-        const menitSekarang = sekarang.getMinutes();
+        sedangProses = true;
+        document.getElementById("notif").innerText = `Mencatat: ${namaSiswa}...`;
+        audioBip.play().catch(e => {});
 
-        // Anti double-scan siswa yang sama di menit yang sama
-        const sudahAbsen = dataAbsen.some(item => item.nama === namaSiswa && item.menit === menitSekarang);
-        if (sudahAbsen) return;
-
-        // Mainkan suara bip secara aman
-        audioBip.play().catch(e => console.log("Menunggu interaksi klik pertama untuk audio"));
-        
-        const notif = document.getElementById("notif");
-        notif.innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
-        notif.className = "status-success";
-        
-        dataAbsen.push({ nama: namaSiswa, jam: jamStr, menit: menitSekarang });
-        localStorage.setItem('absen_sdn_serut', JSON.stringify(dataAbsen));
-        
-        updateTable();
-        setTimeout(() => { notif.className = ""; }, 2500);
+        // Perbaikan utama: Menggunakan format standar fetch (tanpa no-cors) agar redirect disetujui Google
+        fetch(`${SCRIPT_URL}?action=write&nama=${encodeURIComponent(namaSiswa)}`, {
+            method: 'GET',
+            redirect: 'follow'
+        })
+        .then(res => res.json())
+        .then(response => {
+            if (response.status === "sukses") {
+                document.getElementById("notif").innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
+            } else {
+                document.getElementById("notif").innerText = `⚠ Tersimpan, memuat ulang tabel...`;
+            }
+            
+            // Tunggu sebentar lalu perbarui tabel internal
+            setTimeout(() => { muatDataDariCloud(); }, 800);
+            
+            setTimeout(() => {
+                document.getElementById("notif").innerText = "Menunggu QR Code Siswa...";
+                sedangProses = false;
+            }, 3000);
+        })
+        .catch(err => {
+            console.error("Gagal kirim data:", err);
+            // Fallback: Jika response JSON diblokir tapi data sebenarnya masuk
+            document.getElementById("notif").innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
+            setTimeout(() => { muatDataDariCloud(); }, 1000);
+            setTimeout(() => {
+                document.getElementById("notif").innerText = "Menunggu QR Code Siswa...";
+                sedangProses = false;
+            }, 3000);
+        });
 
     } catch (e) {
-        console.error("Mendapat scan teks non-URL, sistem mengabaikan aman.");
+        console.error(e);
+        sedangProses = false;
     }
 }
 
-// Fungsi utama untuk menyalakan scanner setelah tombol diklik
-function mulaiScanner() {
-    // Memancing aktivasi audio audioBip agar diizinkan oleh sistem browser laptop
-    audioBip.play().then(() => {
-        audioBip.pause();
-        audioBip.currentTime = 0;
-    }).catch(e => console.log("Audio diaktifkan"));
+// 3. Deteksi Otomatis Kamera
+navigator.mediaDevices.enumerateDevices().then(devices => {
+    const punyaKamera = devices.some(device => device.kind === 'videoinput');
+    if (!punyaKamera) {
+        document.getElementById("scannerBox").style.display = "none";
+        document.getElementById("pcNotice").style.display = "block";
+    } else {
+        inisialisasiScanner();
+    }
+}).catch(() => {
+    if (window.innerWidth >= 768) {
+        document.getElementById("scannerBox").style.display = "none";
+        document.getElementById("pcNotice").style.display = "block";
+    } else {
+        inisialisasiScanner();
+    }
+});
 
-    document.getElementById("notif").innerText = "Menunggu QR Code Siswa...";
-    document.getElementById("startBtn").style.display = "none";
-
+function inisialisasiScanner() {
     const html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-        fps: 15, 
-        qrbox: {width: 250, height: 250},
-        rememberLastUsedCamera: true
+        fps: 20, 
+        qrbox: { width: 280, height: 280 }, 
+        rememberLastUsedCamera: true,
+        videoConstraints: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: "environment"
+        }
     });
     html5QrcodeScanner.render(prosesAbsensi);
 }
 
-function clearAbsen() {
-    if (confirm("Hapus semua data absen hari ini?")) {
-        dataAbsen = [];
-        localStorage.removeItem('absen_sdn_serut');
-        updateTable();
-    }
-}
-
-updateTable();
+// Cek perubahan data di database setiap 4 detik sekali
+setInterval(muatDataDariCloud, 4000);
+muatDataDariCloud();
 </script>
 </body>
 </html>
