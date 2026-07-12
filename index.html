@@ -1,196 +1,208 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Absen Otomatis - SDN Serut 01</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-    <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #eef2f3; margin: 0; padding: 20px; text-align: center; color: #333; }
-        .container { max-width: 1000px; margin: auto; display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
-        .box { background: white; padding: 20px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); flex: 1; min-width: 320px; }
-        #reader { width: 100%; max-width: 400px; margin: auto; border-radius: 12px; overflow: hidden; background: #222; }
-        .log-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        .log-table th, .log-table td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
-        .log-table th { background: #1565c0; color: white; }
-        #notif { font-size: 24px; font-weight: bold; margin: 15px 0; min-height: 35px; color: #2e7d32; }
-        .pc-only { display: none; }
-        @media (min-width: 768px) {
-            .pc-only { display: block; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kartu Cita-Cita SD Negeri Serut 01</title>
+<style>
+body{font-family:Arial,sans-serif;background:#f4f4f4;max-width:900px;margin:auto;padding:20px;text-align:center}
+.panel{background:#fff;padding:20px;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,.15)}
+input{width:100%;padding:12px;margin:8px 0;box-sizing:border-box}
+button{padding:12px 20px;border:none;border-radius:10px;background:#1565c0;color:#fff;cursor:pointer;font-weight:bold}
+#preview{max-width:420px;width:100%;margin-top:15px;border-radius:12px;cursor:move;background:#eee;min-height:200px;display:inline-block}
+canvas{display:none}
+</style>
 </head>
 <body>
+<div class="panel">
+<h2>Kartu Cita-Cita SD Negeri Serut 01</h2>
 
-    <h1>🚨 PANEL ABSENSI ONLINE SDN SERUT 01 🚨</h1>
-    
-    <!-- Notifikasi Deteksi Perangkat PC -->
-    <div class="pc-only" id="pcNotice" style="display:none;">
-        <p style="background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; font-weight: bold; max-width: 700px; margin: 0 auto 15px auto;">
-            🖥️ Mode Monitor PC Aktif (Tanpa Kamera). Gunakan HP Anda untuk scan QR Code, tabel di bawah akan terisi otomatis secara real-time.
-        </p>
-    </div>
+<input type="file" id="foto" accept="image/*">
+<input type="text" id="nama" placeholder="Nama Siswa">
+<input type="text" id="cita" placeholder="Cita-cita">
 
-    <div class="container">
-        <!-- Kotak Kamera Scanner -->
-        <div class="box" id="scannerBox">
-            <h3>📷 SCANNER KAMERA (HP)</h3>
-            <div id="reader"></div>
-            <div id="notif">Menunggu QR Code Siswa...</div>
-        </div>
+<p><b>Geser foto dengan mouse/jari. Zoom dengan roda mouse atau cubit layar HP.</b></p>
 
-        <!-- Tabel Daftar Hadir -->
-        <div class="box">
-            <h3>📅 DAFTAR HADIR REAL-TIME (<span id="count">0</span> Siswa)</h3>
-            <div style="max-height: 450px; overflow-y: auto;">
-                <table class="log-table">
-                    <thead>
-                        <tr>
-                            <th>Waktu</th>
-                            <th>Nama Siswa</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="logMulai"></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+<button id="renderBtn">Preview</button>
+<a id="download" style="display:none"><button type="button">Download PNG</button></a>
+<br><br>
+<img id="preview" alt="Preview Twibbon akan muncul di sini">
+</div>
+
+<canvas id="canvas" width="1529" height="2048"></canvas>
 
 <script>
-// Menghubungkan langsung dengan Web App Google Sheets Anda
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxlHfUpwFJdrA5miV4pI4L48Zu_XjKJrhg3SFRKx_PbWLDMNwHwqHwLjIADUIUvJwrBXw/exec"; 
+const TEMPLATE_SRC = "template.png";
 
-const audioBip = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav');
-let sedangProses = false;
+let userImage = null;
+let posX = 0, posY = 0, scale = 1.0;
+let dragging = false, startX = 0, startY = 0;
 
-// 1. Ambil data terbaru dari Google Sheets
-function muatDataDariCloud() {
-    if (!SCRIPT_URL.includes("script.google.com")) return;
-    
-    fetch(`${SCRIPT_URL}?action=read`, {
-        method: 'GET',
-        redirect: 'follow'
-    })
-    .then(res => {
-        if (!res.ok) throw new Error('Jaringan bermasalah');
-        return res.json();
-    })
-    .then(data => {
-        const tbody = document.getElementById("logMulai");
-        document.getElementById("count").innerText = data.length;
-        tbody.innerHTML = "";
-        
-        // Susun nama dari yang paling baru absen di baris paling atas
-        data.reverse().forEach(item => {
-            let row = `<tr>
-                <td><b>${item.jam}</b></td>
-                <td>${item.nama}</td>
-                <td style="color: green; font-weight:bold;">✅ HADIR</td>
-            </tr>`;
-            tbody.innerHTML += row;
-        });
-    })
-    .catch(err => {
-        console.log("Laptop sedang menghubungkan ke server...", err);
-    });
+const preview = document.getElementById("preview");
+const canvas = document.getElementById("canvas");
+
+function getCanvasRatio() {
+ return preview.clientWidth ? (canvas.width / preview.clientWidth) : 1;
 }
 
-// 2. Fungsi memproses kiriman QR Code dari HP ke Google Sheets
-function prosesAbsensi(decodedText) {
-    if (sedangProses) return;
-    
-    let namaSiswa = "";
-
-    try {
-        // Jika QR Code berupa URL utuh (?nama=Ahmad)
-        if (decodedText.includes("nama=")) {
-            const url = new URL(decodedText);
-            namaSiswa = url.searchParams.get("nama");
-        } else {
-            // Jika QR Code hanya berisi teks nama polos saja
-            namaSiswa = decodedText.trim();
-        }
-        
-        if (!namaSiswa) return;
-        
-        sedangProses = true;
-        document.getElementById("notif").innerText = `Mencatat: ${namaSiswa}...`;
-        audioBip.play().catch(e => {});
-
-        // Perbaikan utama: Menggunakan format standar fetch (tanpa no-cors) agar redirect disetujui Google
-        fetch(`${SCRIPT_URL}?action=write&nama=${encodeURIComponent(namaSiswa)}`, {
-            method: 'GET',
-            redirect: 'follow'
-        })
-        .then(res => res.json())
-        .then(response => {
-            if (response.status === "sukses") {
-                document.getElementById("notif").innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
-            } else {
-                document.getElementById("notif").innerText = `⚠ Tersimpan, memuat ulang tabel...`;
-            }
-            
-            // Tunggu sebentar lalu perbarui tabel internal
-            setTimeout(() => { muatDataDariCloud(); }, 800);
-            
-            setTimeout(() => {
-                document.getElementById("notif").innerText = "Menunggu QR Code Siswa...";
-                sedangProses = false;
-            }, 3000);
-        })
-        .catch(err => {
-            console.error("Gagal kirim data:", err);
-            // Fallback: Jika response JSON diblokir tapi data sebenarnya masuk
-            document.getElementById("notif").innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
-            setTimeout(() => { muatDataDariCloud(); }, 1000);
-            setTimeout(() => {
-                document.getElementById("notif").innerText = "Menunggu QR Code Siswa...";
-                sedangProses = false;
-            }, 3000);
-        });
-
-    } catch (e) {
-        console.error(e);
-        sedangProses = false;
-    }
+function autoFont(ctx, text, maxWidth, start) {
+ let s = start;
+ while (s > 20) {
+  ctx.font = `bold ${s}px Arial`;
+  if (ctx.measureText(text).width <= maxWidth) return s;
+  s--;
+ }
+ return 20;
 }
 
-// 3. Deteksi Otomatis Kamera
-navigator.mediaDevices.enumerateDevices().then(devices => {
-    const punyaKamera = devices.some(device => device.kind === 'videoinput');
-    if (!punyaKamera) {
-        document.getElementById("scannerBox").style.display = "none";
-        document.getElementById("pcNotice").style.display = "block";
-    } else {
-        inisialisasiScanner();
-    }
-}).catch(() => {
-    if (window.innerWidth >= 768) {
-        document.getElementById("scannerBox").style.display = "none";
-        document.getElementById("pcNotice").style.display = "block";
-    } else {
-        inisialisasiScanner();
-    }
+function render() {
+ if (!userImage) {
+  alert("Silakan pilih foto siswa terlebih dahulu!");
+  return;
+ }
+
+ const ctx = canvas.getContext("2d");
+ const templateImage = new Image();
+ 
+ templateImage.crossOrigin = "anonymous";
+ 
+ templateImage.onload = () => {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // KOORDINAT PUSAT LINGKARAN TRANSPARAN TEMPLATE
+  const cx = 775; 
+  const cy = 1055;
+
+  const minTargetSize = 900; 
+  const base = Math.max(minTargetSize / userImage.width, minTargetSize / userImage.height) * scale;
+
+  const w = userImage.width * base;
+  const h = userImage.height * base;
+
+  // 1. Gambar Foto User di Layer Paling Bawah
+  ctx.drawImage(userImage, cx - w/2 + posX, cy - h/2 + posY, w, h);
+
+  // 2. Tumpuk dengan Template Transparan di Atasnya
+  ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
+
+  // 3. Cetak Teks Nama & Cita-cita (Rata Tengah di Sisi Kosong)
+  const nama = (document.getElementById("nama").value || "").toUpperCase();
+  const cita = (document.getElementById("cita").value || "").toUpperCase();
+
+  ctx.fillStyle = "#111";
+  ctx.textAlign = "center"; 
+
+  // PERBAIKAN KOORDINAT DAN BATAS LEBAR MAKSIMAL (maxWidth)
+  // Koordinat X digeser lebih ke kanan (ke area yang benar-benar kosong)
+  let fs = autoFont(ctx, nama, 280, 42); 
+  ctx.font = `bold ${fs}px Arial`;
+  ctx.fillText(nama, 335, 1950); 
+
+  // Koordinat X digeser lebih ke kanan (ke area yang benar-benar kosong)
+  fs = autoFont(ctx, cita, 280, 42);
+  ctx.font = `bold ${fs}px Arial`;
+  ctx.fillText(cita, 983, 1950); 
+
+  // 4. Masukkan ke Elemen Preview Gambar
+  try {
+   const data = canvas.toDataURL("image/png");
+   preview.src = data;
+
+   const dl = document.getElementById("download");
+   dl.href = data;
+   dl.download = "Kartu-Cita-Cita.png";
+   dl.style.display = "inline-block";
+  } catch (err) {
+   console.error("Gagal ekspor gambar:", err);
+  }
+ };
+
+ templateImage.onerror = () => {
+  alert("Gagal memuat file template.png!");
+ };
+
+ templateImage.src = TEMPLATE_SRC;
+}
+
+document.getElementById("foto").addEventListener("change", e => {
+ const f = e.target.files[0];
+ if (!f) return;
+ const img = new Image();
+ img.onload = () => {
+  userImage = img;
+  posX = 0; posY = 0; scale = 1.0;
+  render(); 
+ };
+ img.src = URL.createObjectURL(f);
 });
 
-function inisialisasiScanner() {
-    const html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-        fps: 20, 
-        qrbox: { width: 280, height: 280 }, 
-        rememberLastUsedCamera: true,
-        videoConstraints: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            facingMode: "environment"
-        }
-    });
-    html5QrcodeScanner.render(prosesAbsensi);
-}
+document.getElementById("nama").addEventListener("input", render);
+document.getElementById("cita").addEventListener("input", render);
+document.getElementById("renderBtn").addEventListener("click", render);
 
-// Cek perubahan data di database setiap 4 detik sekali
-setInterval(muatDataDariCloud, 4000);
-muatDataDariCloud();
+// Logika Geser dengan Mouse
+preview.addEventListener("mousedown", e => {
+ dragging = true; startX = e.clientX; startY = e.clientY;
+});
+window.addEventListener("mouseup", () => dragging = false);
+window.addEventListener("mousemove", e => {
+ if (!dragging || !userImage) return;
+ const ratio = getCanvasRatio();
+ /** @type {number} */
+ posX += (e.clientX - startX) * ratio;
+ /** @type {number} */
+ posY += (e.clientY - startY) * ratio;
+ startX = e.clientX; startY = e.clientY;
+ render();
+});
+
+// Logika Zoom dengan Roda Mouse
+preview.addEventListener("wheel", e => {
+ e.preventDefault();
+ scale += e.deltaY < 0 ? 0.05 : -0.05;
+ if (scale < 0.3) scale = 0.3;
+ if (scale > 5) scale = 5;
+ render();
+});
+
+// Logika Touchscreen
+let pinchStart = 0;
+preview.addEventListener("touchstart", e => {
+ if (e.touches.length === 1) {
+  dragging = true;
+  startX = e.touches[0].clientX;
+  startY = e.touches[0].clientY;
+ }
+ if (e.touches.length === 2) {
+  const dx = e.touches[0].clientX - e.touches[1].clientX;
+  const dy = e.touches[0].clientY - e.touches[1].clientY;
+  pinchStart = Math.hypot(dx, dy);
+ }
+});
+
+preview.addEventListener("touchmove", e => {
+ e.preventDefault();
+ if (e.touches.length === 1 && dragging) {
+  const ratio = getCanvasRatio();
+  posX += (e.touches[0].clientX - startX) * ratio;
+  posY += (e.touches[0].clientY - startY) * ratio;
+  startX = e.touches[0].clientX;
+  startY = e.touches[0].clientY;
+  render();
+ }
+ if (e.touches.length === 2) {
+  const dx = e.touches[0].clientX - e.touches[1].clientX;
+  const dy = e.touches[0].clientY - e.touches[1].clientY;
+  const dist = Math.hypot(dx, dy);
+  scale *= dist / pinchStart;
+  if (scale < 0.3) scale = 0.3;
+  if (scale > 5) scale = 5;
+  pinchStart = dist;
+  render();
+ }
+}, { passive: false });
+
+preview.addEventListener("touchend", () => dragging = false);
 </script>
 </body>
 </html>
