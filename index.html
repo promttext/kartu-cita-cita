@@ -64,15 +64,14 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw8fLSro1fU6k0PxN4IA
 const audioBip = new Audio('https://assets.mixkit.co/active_storage/sfx/2568/2568-84.wav');
 let sedangProses = false;
 
-// 1. Ambil data terbaru dari Google Sheets secara real-time (Versi Anti-Blokir Laptop)
+// 1. Ambil data terbaru dari Google Sheets (Dioptimasi untuk pengalihan Google)
 function muatDataDariCloud() {
     if (!SCRIPT_URL.includes("script.google.com")) return;
     
-    // Menambahkan mode 'cors' dan cache 'no-cache' agar laptop dipaksa mengambil data paling segar
     fetch(`${SCRIPT_URL}?action=read`, {
         method: 'GET',
-        mode: 'cors',
-        cache: 'no-cache'
+        // Menggunakan redirect 'follow' agar laptop bisa mengikuti link enkripsi buatan Google
+        redirect: 'follow'
     })
     .then(res => {
         if (!res.ok) throw new Error('Jaringan bermasalah');
@@ -94,18 +93,25 @@ function muatDataDariCloud() {
         });
     })
     .catch(err => {
-        console.log("Laptop sedang mencoba menghubungkan ke server database...", err);
+        console.log("Laptop sedang menghubungkan ke server...", err);
     });
 }
 
-// 2. Fungsi memproses kiriman QR Code dari HP ke Google Sheets
+// 2. Fungsi memproses kiriman QR Code dari HP ke Google Sheets (Dibuat Fleksibel)
 function prosesAbsensi(decodedText) {
     if (sedangProses) return;
-    try {
-        if (!decodedText.includes("nama=")) return;
+    
+    let namaSiswa = "";
 
-        const url = new URL(decodedText);
-        const namaSiswa = url.searchParams.get("nama");
+    try {
+        // Jika QR Code berupa URL utuh (?nama=Ahmad)
+        if (decodedText.includes("nama=")) {
+            const url = new URL(decodedText);
+            namaSiswa = url.searchParams.get("nama");
+        } else {
+            // Jika QR Code hanya berisi teks nama polos saja
+            namaSiswa = decodedText.trim();
+        }
         
         if (!namaSiswa) return;
         
@@ -113,24 +119,30 @@ function prosesAbsensi(decodedText) {
         document.getElementById("notif").innerText = `Mencatat: ${namaSiswa}...`;
         audioBip.play().catch(e => {});
 
-        // Mengirim data ke Google Sheets via Fetch API
-        fetch(`${SCRIPT_URL}?action=write&nama=${encodeURIComponent(namaSiswa)}`)
-            .then(res => res.json())
-            .then(data => {
-                document.getElementById("notif").innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
-                muatDataDariCloud(); // Paksa re-fetch tabel seketika
-                setTimeout(() => {
-                    document.getElementById("notif").innerText = "Menunggu QR Code Siswa...";
-                    sedangProses = false;
-                }, 2500);
-            })
-            .catch(err => {
-                alert("Gagal mengirim data. Pastikan HP terhubung internet.");
+        // Mengirim data ke Google Sheets via Fetch API dengan mode 'no-cors' agar lolos blokir HP
+        fetch(`${SCRIPT_URL}?action=write&nama=${encodeURIComponent(namaSiswa)}`, {
+            method: 'GET',
+            mode: 'no-cors'
+        })
+        .then(() => {
+            document.getElementById("notif").innerText = `👋 SELAMAT DATANG, ${namaSiswa}!`;
+            
+            // Tunggu 1 detik lalu perbarui tabel internal
+            setTimeout(() => { muatDataDariCloud(); }, 1000);
+            
+            setTimeout(() => {
+                document.getElementById("notif").innerText = "Menunggu QR Code Siswa...";
                 sedangProses = false;
-            });
+            }, 3000);
+        })
+        .catch(err => {
+            console.error("Gagal kirim via background fetch:", err);
+            sedangProses = false;
+        });
 
     } catch (e) {
         console.error(e);
+        sedangProses = false;
     }
 }
 
@@ -138,14 +150,12 @@ function prosesAbsensi(decodedText) {
 navigator.mediaDevices.enumerateDevices().then(devices => {
     const punyaKamera = devices.some(device => device.kind === 'videoinput');
     if (!punyaKamera) {
-        // Jika tidak punya kamera (seperti PC Anda), sembunyikan kotak scanner & munculkan info monitor
         document.getElementById("scannerBox").style.display = "none";
         document.getElementById("pcNotice").style.display = "block";
     } else {
         inisialisasiScanner();
     }
 }).catch(() => {
-    // Jalankan pengaman jika browser menolak mentah-mentah akses media peranti
     if (window.innerWidth >= 768) {
         document.getElementById("scannerBox").style.display = "none";
         document.getElementById("pcNotice").style.display = "block";
@@ -155,21 +165,22 @@ navigator.mediaDevices.enumerateDevices().then(devices => {
 });
 
 function inisialisasiScanner() {
-    // Optimasi resolusi kamera khusus untuk QR Code berkepadatan tinggi
     const html5QrcodeScanner = new Html5QrcodeScanner("reader", { 
-        fps: 20, // Menaikkan frame rate agar deteksi lebih responsif
-        qrbox: { width: 280, height: 280 }, // Memperbesar kotak bidik
+        fps: 20, 
+        qrbox: { width: 280, height: 280 }, 
         rememberLastUsedCamera: true,
         videoConstraints: {
-            window: { min: 720, ideal: 1080, max: 1440 }, // Memaksa browser menggunakan resolusi HD/Full HD agar kotak QR tidak blur
-            facingMode: "environment" // Mengunci otomatis ke kamera belakang utama HP
+            // Pengaturan resolusi HD agar kamera fokus membaca QR Code padat
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: "environment"
         }
     });
     html5QrcodeScanner.render(prosesAbsensi);
 }
 
-// Cek perubahan data di database setiap 3 detik sekali
-setInterval(muatDataDariCloud, 3000);
+// Cek perubahan data di database setiap 4 detik sekali agar layar monitor laptop terus sinkron
+setInterval(muatDataDariCloud, 4000);
 muatDataDariCloud();
 </script>
 </body>
